@@ -1,0 +1,29 @@
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { Product } from '../data/mockProducts';
+// Auth Stack
+export type AuthStackParamList = {
+    Login: undefined;
+    Signup: undefined;
+};
+
+// Root Stack
+export type RootStackParamList = {
+    Auth: undefined;
+    MainTabs: undefined;
+    Results: { query?: string; category?: string; imageUri?: string };
+    ProductDetail: { productId: string };
+    ImageSearch: undefined;
+};
+
+// Bottom Tabs
+export type BottomTabParamList = {
+    Home: undefined;
+    Search: undefined;
+    Wishlist: undefined;
+    Profile: undefined;
+};
+
+// Navigation prop types
+export type RootStackNavProp = NativeStackNavigationProp<RootStackParamList>;
+export type HomeNavProp = NativeStackNavigationProp<RootStackParamList, 'MainTabs'>;
