@@ -5,6 +5,17 @@ import { sendError } from '../utils/apiResponse';
 import logger from '../utils/logger';
 import { config } from '../config';
 
+// Sanitize request body before logging — redact sensitive fields
+const sanitizeBody = (body: any): any => {
+    if (!body || typeof body !== 'object') return body;
+    const SENSITIVE_KEYS = ['password', 'token', 'refreshToken', 'secret', 'creditCard', 'cvv'];
+    const sanitized = { ...body };
+    SENSITIVE_KEYS.forEach(key => {
+        if (key in sanitized) sanitized[key] = '[REDACTED]';
+    });
+    return sanitized;
+};
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const errorHandler: ErrorRequestHandler = (
     err: Error,
@@ -17,6 +28,8 @@ export const errorHandler: ErrorRequestHandler = (
         stack: config.nodeEnv === 'development' ? err.stack : undefined,
         path: req.path,
         method: req.method,
+        // Only log body in development, always sanitize sensitive fields
+        ...(config.nodeEnv === 'development' && { body: sanitizeBody(req.body) }),
     });
 
     // Known operational errors
@@ -50,7 +63,7 @@ export const errorHandler: ErrorRequestHandler = (
         return;
     }
 
-    // JWT errors are handled in auth middleware, but fallback here
+    // JWT errors
     if (err.name === 'JsonWebTokenError') {
         sendError(res, 'Invalid token', 401);
         return;
@@ -61,7 +74,7 @@ export const errorHandler: ErrorRequestHandler = (
         return;
     }
 
-    // Unknown errors - don't leak details in production
+    // Unknown errors — never leak internal details in production
     const message =
         config.nodeEnv === 'development' ? err.message : 'Internal server error';
     sendError(res, message, 500);

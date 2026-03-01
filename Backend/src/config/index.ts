@@ -5,6 +5,7 @@ const requiredEnvVars = [
     'MONGO_URI',
     'JWT_SECRET',
     'JWT_REFRESH_SECRET',
+    'NODE_ENV',
 ] as const;
 
 for (const envVar of requiredEnvVars) {
@@ -15,11 +16,11 @@ for (const envVar of requiredEnvVars) {
 
 export const config = {
     port: parseInt(process.env.PORT || '5000', 10),
-    nodeEnv: process.env.NODE_ENV || 'development',
+    nodeEnv: process.env.NODE_ENV as string,
     mongoUri: process.env.MONGO_URI as string,
     jwt: {
         secret: process.env.JWT_SECRET as string,
-        expires: process.env.JWT_EXPIRES || '7d',
+        expires: process.env.JWT_EXPIRES || '15m', // Shorter access token for security
         refreshSecret: process.env.JWT_REFRESH_SECRET as string,
         refreshExpires: process.env.JWT_REFRESH_EXPIRES || '30d',
     },

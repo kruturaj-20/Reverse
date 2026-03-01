@@ -1,21 +1,10 @@
 import { Router } from 'express';
 import { searchProducts } from '../controllers/searchController';
-import { query } from 'express-validator';
-import { validate } from '../middleware/validate';
+import { validateRequest } from '../middleware/validateRequest';
+import { searchQuerySchema } from '../validations/searchValidation';
 
 const router = Router();
 
-router.get(
-    '/',
-    [
-        query('q').optional().trim(),
-        query('page').optional().isInt({ min: 1 }).toInt(),
-        query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
-        query('category').optional().trim(),
-        query('brand').optional().trim(),
-    ],
-    validate,
-    searchProducts
-);
+router.get('/', validateRequest(searchQuerySchema), searchProducts);
 
 export default router;

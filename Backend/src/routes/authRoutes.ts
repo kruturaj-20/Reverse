@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { login, logout, refresh, signup, getMe } from '../controllers/authController';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticate } from '../middleware/authenticate';
-import { loginSchema, refreshSchema, signupSchema } from '../validations/authValidation';
+import { loginSchema, refreshSchema, signupSchema, logoutSchema } from '../validations/authValidation';
 
 const router = Router();
 
@@ -12,7 +12,7 @@ router.post('/login', validateRequest(loginSchema), login);
 router.post('/refresh', validateRequest(refreshSchema), refresh);
 
 // Protected routes
-router.post('/logout', authenticate, logout);
+router.post('/logout', authenticate, validateRequest(logoutSchema), logout);
 router.get('/me', authenticate, getMe);
 
 export default router;

@@ -6,17 +6,20 @@ import {
     updateProduct,
     deleteProduct,
 } from '../controllers/productController';
-import { authenticate } from '../middleware/authenticate'; // In a real app, create/update/delete would also use an authorize('admin') middleware
+import { authenticate } from '../middleware/authenticate';
+import { authorize } from '../middleware/authorize';
 import { validateRequest } from '../middleware/validateRequest';
 import { createProductSchema, productQuerySchema, updateProductSchema } from '../validations/productValidation';
 
 const router = Router();
 
+// Public routes
 router.get('/', validateRequest(productQuerySchema), getProducts);
 router.get('/:id', getProductById);
 
-router.post('/', authenticate, validateRequest(createProductSchema), createProduct);
-router.put('/:id', authenticate, validateRequest(updateProductSchema), updateProduct);
-router.delete('/:id', authenticate, deleteProduct);
+// Admin-only routes — requires authentication + admin role
+router.post('/', authenticate, authorize('admin'), validateRequest(createProductSchema), createProduct);
+router.put('/:id', authenticate, authorize('admin'), validateRequest(updateProductSchema), updateProduct);
+router.delete('/:id', authenticate, authorize('admin'), deleteProduct);
 
 export default router;

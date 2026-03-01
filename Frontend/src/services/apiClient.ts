@@ -35,6 +35,14 @@ apiClient.interceptors.response.use(
 
         // If error is 401 and we haven't tried refreshing yet
         if (error.response?.status === 401 && !originalRequest._retry) {
+            // Skip refresh logic for auth endpoints to prevent infinite loops
+            if (originalRequest.url?.includes('/auth/login') ||
+                originalRequest.url?.includes('/auth/signup') ||
+                originalRequest.url?.includes('/auth/refresh') ||
+                originalRequest.url?.includes('/auth/logout')) {
+                return Promise.reject(error);
+            }
+
             originalRequest._retry = true;
 
             try {

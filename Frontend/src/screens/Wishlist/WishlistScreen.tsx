@@ -21,7 +21,8 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const WishlistScreen = () => {
     const navigation = useNavigation<NavProp>();
-    const { items, removeFromWishlist, loadWishlist, loading } = useWishlistStore();
+    const { items: rawItems, removeFromWishlist, loadWishlist, loading } = useWishlistStore();
+    const items = rawItems || [];
 
     React.useEffect(() => {
         loadWishlist();
@@ -78,7 +79,10 @@ export const WishlistScreen = () => {
                     contentContainerStyle={styles.list}
                     showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => {
-                        const lowestPrice = Math.min(...item.storePrices.map(s => s.price));
+                        const storePrices = item.storePrices || [];
+                        const lowestPrice = storePrices.length > 0
+                            ? Math.min(...storePrices.map(s => s.price))
+                            : item.originalPrice;
                         const savings = item.originalPrice - lowestPrice;
                         const discountPct = Math.round(
                             ((item.originalPrice - lowestPrice) / item.originalPrice) * 100,

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
+import RefreshToken from '../models/RefreshToken';
 import { generateTokenPair, verifyRefreshToken } from '../services/authService';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -14,7 +15,7 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
     if (existing) throw new AppError('Email is already registered', 409);
 
     const user = await User.create({ name, email, password, avatar: avatar || '' });
-    const tokens = generateTokenPair(user);
+    const tokens = await generateTokenPair(user);
 
     sendSuccess(
         res,
@@ -34,9 +35,9 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) throw new AppError('Invalid email or password', 401);
 
-    const tokens = generateTokenPair(user);
+    const tokens = await generateTokenPair(user);
 
-    // Return user without password
+    // Return user without password (toJSON transform handles this)
     const userObj = user.toJSON();
     sendSuccess(res, { user: userObj, ...tokens }, 'Logged in successfully');
 });
@@ -45,18 +46,31 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
     const { refreshToken: token } = req.body;
     if (!token) throw new AppError('Refresh token is required', 400);
 
+    // Verify token cryptographically
     const decoded = verifyRefreshToken(token);
+
+    // Verify it exists in the store — proves it hasn't been revoked/used
+    const stored = await RefreshToken.findOne({ token });
+    if (!stored) throw new AppError('Invalid or revoked refresh token', 401);
 
     const user = await User.findById(decoded.id);
     if (!user) throw new AppError('User not found', 401);
 
-    const tokens = generateTokenPair(user);
+    // Rotate: delete old token, issue new pair
+    await RefreshToken.deleteOne({ token });
+    const tokens = await generateTokenPair(user);
+
     sendSuccess(res, tokens, 'Token refreshed successfully');
 });
 
-export const logout = asyncHandler(async (_req: Request, res: Response) => {
-    // Stateless JWT — client must delete the token. In a stateful system,
-    // this would invalidate the refresh token in a blocklist/DB.
+export const logout = asyncHandler(async (req: Request, res: Response) => {
+    const { refreshToken } = req.body;
+
+    // Revoke the refresh token from the store
+    if (refreshToken) {
+        await RefreshToken.deleteOne({ token: refreshToken });
+    }
+
     sendSuccess(res, null, 'Logged out successfully');
 });
 

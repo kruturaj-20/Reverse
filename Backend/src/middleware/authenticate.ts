@@ -10,6 +10,7 @@ export interface AuthRequest extends Request {
         id: string;
         email: string;
         name: string;
+        role: string;
     };
 }
 
@@ -23,21 +24,26 @@ export const authenticate = asyncHandler(
 
         const token = authHeader.split(' ')[1];
 
-        const decoded = jwt.verify(token, config.jwt.secret) as {
+        const decoded = jwt.verify(token, config.jwt.secret, {
+            algorithms: ['HS256'], // Prevent algorithm confusion attacks
+        }) as {
             id: string;
             email: string;
             name: string;
+            role: string;
             iat: number;
             exp: number;
         };
 
-        // Ensure user still exists in DB (handles case where user was deleted)
-        const user = await User.findById(decoded.id).select('_id name email');
+        // Always fetch from DB — ensures user still exists AND gets latest role
+        // (important if role was changed or user was deleted after token was issued)
+        const user = await User.findById(decoded.id).select('_id name email role');
         if (!user) {
             throw new AppError('User belonging to this token no longer exists', 401);
         }
 
-        req.user = { id: decoded.id, email: decoded.email, name: decoded.name };
+        // Use DB role (not token role) to prevent privilege escalation via old tokens
+        req.user = { id: decoded.id, email: decoded.email, name: decoded.name, role: user.role };
         next();
     }
 );
