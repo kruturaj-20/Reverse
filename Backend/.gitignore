@@ -1,5 +1,4 @@
-# Source files
-src/
+# Build Output
 dist/
 node_modules/
 
