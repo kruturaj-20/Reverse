@@ -1,0 +1,49 @@
+{
+    "name": "reverseshop-backend",
+    "version": "1.0.0",
+    "description": "Production-ready backend for ReverseShop mobile application",
+    "main": "dist/server.js",
+    "scripts": {
+        "dev": "nodemon --exec ts-node src/server.ts",
+        "build": "tsc",
+        "start": "node dist/server.js",
+        "lint": "eslint src/**/*.ts",
+        "type-check": "tsc --noEmit"
+    },
+    "keywords": [
+        "ecommerce",
+        "reverse-shopping",
+        "nodejs",
+        "express",
+        "typescript"
+    ],
+    "author": "ReverseShop Team",
+    "license": "ISC",
+    "dependencies": {
+        "bcryptjs": "^2.4.3",
+        "compression": "^1.7.4",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.19.2",
+        "express-rate-limit": "^7.3.1",
+        "express-validator": "^7.1.0",
+        "helmet": "^7.1.0",
+        "jsonwebtoken": "^9.0.2",
+        "mongoose": "^8.4.3",
+        "morgan": "^1.10.0",
+        "winston": "^3.13.0",
+        "zod": "^4.3.6"
+    },
+    "devDependencies": {
+        "@types/bcryptjs": "^2.4.6",
+        "@types/compression": "^1.7.5",
+        "@types/cors": "^2.8.17",
+        "@types/express": "^4.17.21",
+        "@types/jsonwebtoken": "^9.0.6",
+        "@types/morgan": "^1.9.9",
+        "@types/node": "^20.14.9",
+        "nodemon": "^3.1.4",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.5.3"
+    }
+}
