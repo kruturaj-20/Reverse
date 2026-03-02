@@ -43,6 +43,42 @@ export const getProducts = asyncHandler(async (req: Request, res: Response) => {
 
 export const getProductById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
+
+    // Handle Affiliate/Mock/RapidAPI IDs which are not MongoDB ObjectIDs
+    if (id.startsWith('af_') || id.startsWith('amz_') || id.startsWith('fk_')) {
+        // Find in mock pool
+        const { searchAffiliateProducts } = await import('../services/affiliateService');
+        // Hack: trigger an empty search to extract the mock pool directly
+        const affiliateProducts = await searchAffiliateProducts({ keywords: [], rawQuery: '' }, 50);
+        const product = affiliateProducts.find(p => p.id === id);
+
+        if (!product) {
+            // It's a live RapidAPI product. Since we don't have caching yet, returning 
+            // a synthesized basic product prevents the UI crash. The frontend already has 
+            // the full product in memory from the search results anyway.
+            sendSuccess(res, {
+                id,
+                name: 'Live Affiliate Product',
+                brand: 'External Store',
+                images: [],
+                price: 0,
+                originalPrice: 0,
+                discount: 0,
+                category: 'general',
+                tags: [],
+                rating: 0,
+                reviews: 0,
+                primaryStore: 'external',
+                description: 'This is a live product from an external store. Click Buy Now to view details.',
+                storePrices: []
+            }, 'Basic affiliate product synthesized');
+            return;
+        }
+
+        sendSuccess(res, product, 'Affiliate product fetched successfully');
+        return;
+    }
+
     const product = await Product.findById(id);
     if (!product) throw new AppError('Product not found', 404);
     sendSuccess(res, product, 'Product fetched successfully');

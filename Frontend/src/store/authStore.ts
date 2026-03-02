@@ -74,12 +74,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     logout: async () => {
-        try {
-            await authService.logout().catch(() => { }); // Ignore network errors on logout
-        } finally {
-            set({ user: null, accessToken: null, isSignout: true });
-            memoryRefreshToken = null;
-            await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+        const currentToken = get().accessToken;
+        // Clear state immediately to prevent re-entry from interceptors
+        set({ user: null, accessToken: null, isSignout: true });
+        memoryRefreshToken = null;
+        await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+        // Only call the API if we actually had a token — avoids 401 when
+        // logout is triggered by the response interceptor (token already gone)
+        if (currentToken) {
+            await authService.logout().catch(() => { }); // Ignore network errors
         }
     },
 

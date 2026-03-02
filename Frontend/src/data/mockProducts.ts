@@ -1,5 +1,6 @@
 export interface StorePricing {
     storeId: string;
+    storeName?: string;          // Display name e.g. "Amazon India", "Flipkart"
     price: number;
     inStock: boolean;
     affiliateUrl: string;
@@ -24,6 +25,7 @@ export interface Product {
     description: string;
     isTrending?: boolean;
     isSponsored?: boolean;
+    affiliateUrl?: string;       // Primary buy link (from affiliate/Amazon)
 }
 
 export const mockProducts: Product[] = [

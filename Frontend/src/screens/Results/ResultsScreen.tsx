@@ -15,12 +15,12 @@ import { RootStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../theme';
 import { ProductCard } from '../../components/product/ProductCard';
 import { Product } from '../../data/mockProducts';
-import { productService } from '../../services/products';
+import { textSearch } from '../../services/search';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteP = RouteProp<RootStackParamList, 'Results'>;
 
-const SORT_OPTIONS = ['Relevance', 'Price: Low to High', 'Price: High to Low', 'Top Rated', 'Discount'];
+const SORT_OPTIONS = ['Relevance', 'Price: Low to High', 'Price: High to Low', 'Top Rated'];
 const STORES = ['All Stores', 'Amazon', 'Flipkart', 'Myntra', 'Meesho', 'AJIO'];
 
 export const ResultsScreen = () => {
@@ -33,39 +33,61 @@ export const ResultsScreen = () => {
     const [showFilters, setShowFilters] = useState(false);
 
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [results, setResults] = useState<Product[]>([]);
+    const [aiQuery, setAiQuery] = useState<string>('');
 
     useEffect(() => {
         fetchResults();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, category, selectedSort]);
 
     const fetchResults = async () => {
         setLoading(true);
+        setError(null);
         try {
-            // Map Sort option to Backend expected queries
-            let sortParam;
-            if (selectedSort === 'Price: Low to High') sortParam = 'price_asc';
-            else if (selectedSort === 'Price: High to Low') sortParam = 'price_desc';
-            else if (selectedSort === 'Top Rated') sortParam = 'rating_desc';
+            let maxPrice: number | undefined;
+            let minPrice: number | undefined;
 
-            let res;
-            if (query) {
-                res = await productService.searchProducts({ q: query, sort: sortParam });
-            } else {
-                res = await productService.getProducts({ category: category || undefined, sort: sortParam });
-            }
+            // Map sort option to price filter params
+            const sortParamMap: Record<string, string | undefined> = {
+                'Price: Low to High': 'price_asc',
+                'Price: High to Low': 'price_desc',
+                'Top Rated': 'rating_desc',
+            };
 
-            // Client-side Store Filtering
+            const searchQuery = query || category;
+            const res = await textSearch(searchQuery, {
+                sort: sortParamMap[selectedSort],
+                maxPrice,
+                minPrice,
+            });
+
             let finalResults = res.data;
+
+            // Client-side store filter
             if (selectedStore !== 'All Stores') {
                 finalResults = finalResults.filter(p =>
-                    p.storePrices.some(sp => sp.storeId.toLowerCase() === selectedStore.toLowerCase()),
+                    p.storePrices?.some(sp =>
+                        sp.storeId.toLowerCase() === selectedStore.toLowerCase(),
+                    ),
                 );
             }
 
+            // Client-side sort (for price/rating sorting on returned results)
+            if (selectedSort === 'Price: Low to High') {
+                finalResults = [...finalResults].sort((a, b) => a.price - b.price);
+            } else if (selectedSort === 'Price: High to Low') {
+                finalResults = [...finalResults].sort((a, b) => b.price - a.price);
+            } else if (selectedSort === 'Top Rated') {
+                finalResults = [...finalResults].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+            }
+
             setResults(finalResults);
-        } catch (error) {
-            console.error('Failed to fetch results', error);
+            setAiQuery(res.meta?.query || searchQuery);
+        } catch (err: any) {
+            console.error('Search failed', err);
+            setError(err?.message || 'Could not fetch results. Is the backend running?');
         } finally {
             setLoading(false);
         }
@@ -84,7 +106,9 @@ export const ResultsScreen = () => {
                         <Text style={styles.queryText} numberOfLines={1}>
                             {query ? `"${query}"` : category || 'All Products'}
                         </Text>
-                        <Text style={styles.resultCount}>{results.length} results</Text>
+                        <Text style={styles.resultCount}>
+                            {loading ? 'Searching...' : `${results.length} results`}
+                        </Text>
                     </View>
                     <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilters(!showFilters)}>
                         <Text style={styles.filterText}>⚙️ Filter</Text>
@@ -118,16 +142,27 @@ export const ResultsScreen = () => {
                 )}
             </SafeAreaView>
 
-            {/* AI badge */}
-            {!!query && (
+            {/* AI Understanding Badge */}
+            {!!query && !loading && !error && (
                 <View style={styles.aiBadge}>
-                    <Text style={styles.aiBadgeText}>✨ AI matched these to: "{query}"</Text>
+                    <Text style={styles.aiBadgeText}>✨ AI searched: "{aiQuery}"</Text>
                 </View>
             )}
 
             {loading ? (
-                <View style={[styles.empty, { opacity: 0.5 }]}>
-                    <Text style={styles.emptyTitle}>Loading...</Text>
+                <View style={styles.empty}>
+                    <Text style={styles.loadingIcon}>✨</Text>
+                    <Text style={styles.emptyTitle}>AI Searching...</Text>
+                    <Text style={styles.emptyText}>Finding the best products for you</Text>
+                </View>
+            ) : error ? (
+                <View style={styles.empty}>
+                    <Text style={styles.emptyIcon}>⚠️</Text>
+                    <Text style={styles.emptyTitle}>Search Failed</Text>
+                    <Text style={styles.emptyText}>{error}</Text>
+                    <TouchableOpacity style={styles.retryBtn} onPress={fetchResults}>
+                        <Text style={styles.retryText}>Try Again</Text>
+                    </TouchableOpacity>
                 </View>
             ) : results.length === 0 ? (
                 <View style={styles.empty}>
@@ -182,7 +217,10 @@ const styles = StyleSheet.create({
     row: { gap: Spacing.sm },
     gridItem: { flex: 1 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingBottom: 80 },
+    loadingIcon: { fontSize: 48 },
     emptyIcon: { fontSize: 60 },
     emptyTitle: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '700' },
     emptyText: { color: Colors.textMuted, fontSize: Typography.base, textAlign: 'center', paddingHorizontal: Spacing.xl },
+    retryBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm },
+    retryText: { color: Colors.white, fontWeight: '700', fontSize: Typography.base },
 });

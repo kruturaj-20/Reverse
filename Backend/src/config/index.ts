@@ -20,7 +20,7 @@ export const config = {
     mongoUri: process.env.MONGO_URI as string,
     jwt: {
         secret: process.env.JWT_SECRET as string,
-        expires: process.env.JWT_EXPIRES || '15m', // Shorter access token for security
+        expires: process.env.JWT_EXPIRES || '15m',
         refreshSecret: process.env.JWT_REFRESH_SECRET as string,
         refreshExpires: process.env.JWT_REFRESH_EXPIRES || '30d',
     },
@@ -29,4 +29,8 @@ export const config = {
         max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
     },
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(','),
+    // AI keys — optional, app works without them
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    cuelinksApiKey: process.env.CUELINKS_API_KEY || '',
+    cuelinksCampaignId: process.env.CUELINKS_CAMPAIGN_ID || '',
 } as const;

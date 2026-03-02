@@ -83,23 +83,31 @@ export const ProductDetailScreen = () => {
     const inWishlist = isInWishlist(product.id);
     const sortedStorePrices = [...(product.storePrices || [])].sort((a, b) => a.price - b.price);
 
-    const handleAddToCart = async (checkoutUrl: string, storeName: string) => {
+    const handleAddToCart = async () => {
         setAddingToCart(true);
         try {
             await addToCart(product, 1);
             Alert.alert(
-                `Added to Cart`,
-                `Product added to cart successfully. You can complete checkout directly in the app later.`,
-                [
-                    { text: 'Okay', style: 'default' }
-                ],
+                'Added to Cart',
+                'Saved! You can complete checkout via any store below.',
+                [{ text: 'Okay', style: 'default' }],
             );
-        } catch (error) {
+        } catch {
             Alert.alert('Error', 'Could not add to cart. Try again.');
         } finally {
             setAddingToCart(false);
         }
     };
+
+    const handleBuyNow = async (affiliateUrl: string, storeName: string) => {
+        const canOpen = await Linking.canOpenURL(affiliateUrl);
+        if (canOpen) {
+            await Linking.openURL(affiliateUrl);
+        } else {
+            Alert.alert(`Open ${storeName}`, `Visit: ${affiliateUrl}`);
+        }
+    };
+
 
     return (
         <View style={styles.container}>
@@ -191,7 +199,7 @@ export const ProductDetailScreen = () => {
                                         {sp.deliveryDays && <Text style={styles.delivery}>{sp.deliveryDays}d delivery</Text>}
                                     </View>
                                     <TouchableOpacity
-                                        onPress={() => handleAddToCart(sp.affiliateUrl, store?.name ?? '')}
+                                        onPress={() => handleBuyNow(sp.affiliateUrl, store?.name ?? '')}
                                         style={[styles.dealBtn, !sp.inStock && styles.dealBtnOOS]}
                                         disabled={!sp.inStock || addingToCart}>
                                         <Text style={styles.dealBtnText}>{sp.inStock ? 'Add to Cart' : 'Out of Stock'}</Text>
@@ -234,7 +242,7 @@ export const ProductDetailScreen = () => {
                         </View>
                         <Button
                             title={addingToCart ? "Adding..." : "🛒  Add To Cart"}
-                            onPress={() => handleAddToCart(sortedStorePrices[0]?.affiliateUrl ?? '', '')}
+                            onPress={handleAddToCart}
                             style={{ flex: 1, marginLeft: Spacing.base }}
                             size="lg"
                             disabled={addingToCart}
