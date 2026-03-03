@@ -5,6 +5,7 @@ import { BottomTabNavigator } from './BottomTabNavigator';
 import { ResultsScreen } from '../screens/Results/ResultsScreen';
 import { ProductDetailScreen } from '../screens/ProductDetail/ProductDetailScreen';
 import { ImageSearchScreen } from '../screens/ImageSearch/ImageSearchScreen';
+import { InAppBrowserScreen } from '../screens/InAppBrowser/InAppBrowserScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { Colors } from '../theme';
 import { useAuthStore } from '../store/authStore';
@@ -46,6 +47,11 @@ export const AppNavigator = () => {
                     <Stack.Screen
                         name="ImageSearch"
                         component={ImageSearchScreen}
+                        options={{ animation: 'slide_from_bottom' }}
+                    />
+                    <Stack.Screen
+                        name="InAppBrowser"
+                        component={InAppBrowserScreen}
                         options={{ animation: 'slide_from_bottom' }}
                     />
                 </>

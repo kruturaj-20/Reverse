@@ -8,6 +8,7 @@ import {
     SafeAreaView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors, Typography, Spacing, BorderRadius } from '../../theme';
 
 interface AppHeaderProps {
@@ -46,10 +47,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                             <TouchableOpacity
                                 onPress={onLocationPress}
                                 style={styles.locationRow}>
-                                <Text style={styles.locationPin}>📍</Text>
+                                <Icon name="location" size={10} color={Colors.primary} />
                                 <Text style={styles.locationText}>Deliver to </Text>
                                 <Text style={styles.locationCity}>{location}</Text>
-                                <Text style={styles.locationChevron}>⌄</Text>
+                                <Icon name="chevron-down-outline" size={10} color={Colors.primary} style={{ marginLeft: 1 }} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -61,7 +62,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                             onPress={onCartPress}
                             style={styles.actionBtn}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Text style={styles.actionIcon}>🛒</Text>
+                            <Icon name="bag-outline" size={24} color={Colors.textPrimary} />
                             {cartCount > 0 && (
                                 <View style={styles.badge}>
                                     <Text style={styles.badgeText}>

@@ -46,7 +46,7 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
     },
 
     isInWishlist: (productId: string) => {
-        return get().items.some(p => p.id === productId);
+        return (get().items ?? []).some(p => p.id === productId);
     },
 
     loadWishlist: async () => {
@@ -54,7 +54,7 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
         try {
             const res = await wishlistService.getWishlist();
             if (res.success && res.data) {
-                set({ items: res.data.products });
+                set({ items: res.data.products ?? [] });
             }
         } catch (e) {
             console.error('Failed to fetch wishlist', e);

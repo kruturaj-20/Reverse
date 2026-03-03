@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { RootStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../theme';
 
@@ -57,15 +58,15 @@ export const SearchScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView>
                 {/* Header search bar */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Text style={styles.backIcon}>←</Text>
+                        <Icon name="arrow-back" size={22} color={Colors.textPrimary} />
                     </TouchableOpacity>
                     <View style={styles.inputWrapper}>
-                        <Text style={styles.searchEmoji}>🔍</Text>
+                        <Icon name="search-outline" size={16} color={Colors.textMuted} />
                         <TextInput
                             ref={inputRef}
                             style={styles.input}
@@ -78,13 +79,13 @@ export const SearchScreen = () => {
                         />
                         {query.length > 0 && (
                             <TouchableOpacity onPress={() => setQuery('')}>
-                                <Text style={styles.clearBtn}>✕</Text>
+                                <Icon name="close-circle" size={18} color={Colors.textMuted} />
                             </TouchableOpacity>
                         )}
                     </View>
                     {/* Image search button */}
                     <TouchableOpacity style={styles.imgBtn} onPress={() => navigation.navigate('ImageSearch')}>
-                        <Text style={styles.imgBtnText}>📸</Text>
+                        <Icon name="camera-outline" size={22} color={Colors.primary} />
                     </TouchableOpacity>
                 </View>
 
@@ -105,13 +106,13 @@ export const SearchScreen = () => {
                             <View style={styles.section}>
                                 <View style={styles.sectionHeader}>
                                     <Text style={styles.sectionTitle}>Recent</Text>
-                                    <TouchableOpacity><Text style={styles.clearAll}>Clear</Text></TouchableOpacity>
+                                    <TouchableOpacity><Text style={styles.clearAll}>Clear all</Text></TouchableOpacity>
                                 </View>
                                 {RECENT_SEARCHES.map((item, i) => (
                                     <TouchableOpacity key={i} style={styles.recentItem} onPress={() => handleSuggestion(item)}>
-                                        <Text style={styles.recentIcon}>🕐</Text>
+                                        <Icon name="time-outline" size={16} color={Colors.textMuted} />
                                         <Text style={styles.recentText}>{item}</Text>
-                                        <Text style={styles.recentArrow}>↗</Text>
+                                        <Icon name="arrow-forward-outline" size={14} color={Colors.textMuted} />
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -137,7 +138,7 @@ export const SearchScreen = () => {
                                 <Text style={styles.sectionTitle}>Search for</Text>
                                 {[query, `${query} under ₹1000`, `${query} under ₹3000`, `best ${query}`].map((s, i) => (
                                     <TouchableOpacity key={i} style={styles.recentItem} onPress={() => { setQuery(s); navigation.navigate('Results', { query: s }); }}>
-                                        <Text style={styles.recentIcon}>🔍</Text>
+                                        <Icon name="search-outline" size={16} color={Colors.textMuted} />
                                         <Text style={styles.recentText}>{s}</Text>
                                     </TouchableOpacity>
                                 ))}
@@ -146,7 +147,7 @@ export const SearchScreen = () => {
                     </>
                 }
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: 40 }}
+                contentContainerStyle={{ paddingBottom: 120 }}
             />
         </View>
     );
@@ -154,26 +155,83 @@ export const SearchScreen = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm, gap: Spacing.sm },
-    backBtn: { padding: Spacing.sm },
-    backIcon: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '300' },
-    inputWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.md, gap: Spacing.sm, borderWidth: 1, borderColor: Colors.primary + '55' },
-    searchEmoji: { fontSize: 14 },
-    input: { flex: 1, color: Colors.textPrimary, fontSize: Typography.base, paddingVertical: Spacing.sm },
-    clearBtn: { color: Colors.textMuted, fontSize: Typography.md, padding: 4 },
-    imgBtn: { backgroundColor: Colors.primaryGhost, borderRadius: BorderRadius.md, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.primary + '44' },
-    imgBtnText: { fontSize: 20 },
-    aiHint: { marginHorizontal: Spacing.base, marginBottom: Spacing.sm, backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: Spacing.sm, borderLeftWidth: 3, borderLeftColor: Colors.primary },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.base,
+        paddingVertical: Spacing.sm,
+        gap: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.surfaceBorder,
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: BorderRadius.md,
+        backgroundColor: Colors.accentLight,
+    },
+    inputWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.accentLight,
+        borderRadius: BorderRadius.full,
+        paddingHorizontal: Spacing.md,
+        gap: Spacing.sm,
+        height: 46,
+        borderWidth: 1,
+        borderColor: Colors.primary + '40',
+    },
+    input: {
+        flex: 1,
+        color: Colors.textPrimary,
+        fontSize: Typography.base,
+        paddingVertical: 0,
+    },
+    imgBtn: {
+        backgroundColor: Colors.primaryGhost,
+        borderRadius: BorderRadius.md,
+        width: 46,
+        height: 46,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.primary + '44',
+    },
+    aiHint: {
+        marginHorizontal: Spacing.base,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.xs,
+        backgroundColor: Colors.accentLight,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.sm,
+        borderLeftWidth: 3,
+        borderLeftColor: Colors.primary,
+    },
     aiHintText: { color: Colors.textSecondary, fontSize: Typography.xs, lineHeight: 18 },
     section: { paddingHorizontal: Spacing.base, marginTop: Spacing.xl },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
     sectionTitle: { color: Colors.textPrimary, fontSize: Typography.md, fontWeight: '700', marginBottom: Spacing.sm },
-    clearAll: { color: Colors.accent, fontSize: Typography.sm },
-    recentItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.divider },
-    recentIcon: { fontSize: 14 },
+    clearAll: { color: Colors.primary, fontSize: Typography.sm, fontWeight: '600' },
+    recentItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        paddingVertical: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
+    },
     recentText: { flex: 1, color: Colors.textSecondary, fontSize: Typography.base },
-    recentArrow: { color: Colors.textMuted, fontSize: Typography.base },
     trendingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.xs },
-    trendChip: { backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderWidth: 1, borderColor: Colors.surfaceBorder },
+    trendChip: {
+        backgroundColor: Colors.accentLight,
+        borderRadius: BorderRadius.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderWidth: 1,
+        borderColor: Colors.surfaceBorder,
+    },
     trendChipText: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '500' },
 });

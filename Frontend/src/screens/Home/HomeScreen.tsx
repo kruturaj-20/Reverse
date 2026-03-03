@@ -1,316 +1,246 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    FlatList,
-    StyleSheet,
-    TouchableOpacity,
-    Animated,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Colors, Spacing, BorderRadius } from '../../theme';
+import { HomeHeader } from '../../components/common/HomeHeader';
+import { FilterSearchBar } from '../../components/common/FilterSearchBar';
+import { CategoryList } from '../../components/common/CategoryList';
+import { BuyerRequestCard } from '../../components/common/BuyerRequestCard';
+import { CustomText } from '../../components/common/CustomText';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
-import { Colors, Typography, Spacing, BorderRadius } from '../../theme';
-import { SearchBar } from '../../components/common/SearchBar';
-import { AppHeader } from '../../components/common/AppHeader';
-import { SkeletonCard } from '../../components/common/SkeletonCard';
-import { DealCard } from '../../components/product/DealCard';
-import { ProductCard } from '../../components/product/ProductCard';
-import { mockCategories } from '../../data/mockCategories';
-import { Product } from '../../data/mockProducts';
-import { productService } from '../../services/products';
-import { useCartStore } from '../../store/cartStore';
+
+// Mock data adapting product categories to reverse marketplace categories
+const MOCK_CATEGORIES = [
+    { id: '1', name: 'Electronics', icon: '📱' },
+    { id: '2', name: 'Furniture', icon: '🛋️' },
+    { id: '3', name: 'Vehicles', icon: '🚗' },
+    { id: '4', name: 'Fashion', icon: '👕' },
+    { id: '5', name: 'Services', icon: '🛠️' },
+];
+
+// Mock buyer requests (Reverse marketplace scenario)
+const MOCK_REQUESTS = [
+    {
+        id: '1',
+        title: 'Looking for a slightly used iPhone 13 Pro (Graphite)',
+        budget: 450,
+        quotesReceived: 3,
+        timeRemaining: 'Closing in: 04:12:30',
+        imageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=300&auto=format&fit=crop',
+        isFavorite: false,
+    },
+    {
+        id: '2',
+        title: 'Need a customized wooden study table',
+        budget: 120,
+        quotesReceived: 0,
+        timeRemaining: 'Closing in: 12:45:00',
+        imageUrl: 'https://images.unsplash.com/photo-1595514535497-28e6791b86e0?q=80&w=300&auto=format&fit=crop',
+        isFavorite: true,
+    },
+    {
+        id: '3',
+        title: 'PlayStation 5 Disc Edition required',
+        budget: 400,
+        quotesReceived: 5,
+        timeRemaining: 'Closing in: 01:10:00',
+        imageUrl: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=300&auto=format&fit=crop',
+        isFavorite: false,
+    },
+];
+
+const FILTER_TABS = ['All', 'Newest', 'High Budget', 'Zero Quotes'];
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const HomeScreen = () => {
     const navigation = useNavigation<NavProp>();
-    const { getCartCount, loadCart } = useCartStore();
-
-    const [selectedCategory, setSelectedCategory] = useState('all');
-    const [loading, setLoading] = useState(true);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [trending, setTrending] = useState<Product[]>([]);
-
-    useEffect(() => {
-        loadCart();
-    }, []);
-
-    useEffect(() => {
-        fetchProducts();
-    }, [selectedCategory]);
-
-    const fetchProducts = async () => {
-        setLoading(true);
-        try {
-            // Fetch normal products
-            const categoryFilter = selectedCategory === 'all' ? undefined : selectedCategory;
-            const res = await productService.getProducts({ category: categoryFilter, limit: 12 });
-            setProducts(res.data);
-
-            // Fetch trending (highest rated) only once
-            if (trending.length === 0) {
-                const trendingRes = await productService.getProducts({ sort: 'rating', limit: 5 });
-                setTrending(trendingRes.data);
-            }
-        } catch (error) {
-            console.error('Failed to load products:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [activeFilter, setActiveFilter] = useState(0);
 
     return (
         <View style={styles.container}>
-            <AppHeader
-                cartCount={getCartCount()}
-                location="Mumbai"
-                onCartPress={() => { /* Navigate to cart later */ }}
-                onAvatarPress={() => navigation.navigate('MainTabs')}
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+            {/* Minimal Location Header */}
+            <HomeHeader
+                location="New York, USA"
+                onNotificationPress={() => console.log('Notifications')}
             />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scroll}>
+                contentContainerStyle={styles.scrollContent}
+            >
+                {/* Search & Filter */}
+                <FilterSearchBar placeholder="Search Buyer Requests..." />
 
-                {/* Smart Search Bar */}
-                <View style={styles.searchSection}>
-                    <SearchBar
-                        value=""
-                        onChangeText={() => { }}
-                        onPress={() => navigation.navigate('Search' as any)}
-                        onImagePress={() => navigation.navigate('ImageSearch')}
-                        onMicPress={() => { }}
-                        placeholder='Search products, brands, deals…'
-                    />
-                    {/* Feature chips */}
-                    <View style={styles.chipRow}>
-                        <LinearGradient
-                            colors={[Colors.primary, Colors.accent]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.chip}>
-                            <Text style={styles.chipText}>✨ AI-Powered</Text>
-                        </LinearGradient>
-                        <TouchableOpacity
-                            style={styles.chipOutline}
-                            onPress={() => navigation.navigate('ImageSearch')}>
-                            <Text style={styles.chipOutlineText}>📸 Visual Search</Text>
-                        </TouchableOpacity>
-                        <View style={styles.chipOutline}>
-                            <Text style={styles.chipOutlineText}>🔥 Live Deals</Text>
+                {/* Promotional / Active Banner */}
+                <View style={styles.bannerContainer}>
+                    <View style={styles.bannerContent}>
+                        <CustomText variant="lg" weight="bold" color={Colors.textPrimary}>
+                            Active Bids
+                        </CustomText>
+                        <CustomText variant="sm" color={Colors.textSecondary} style={styles.bannerSub}>
+                            3 of your quotes are currently winning!
+                        </CustomText>
+                        <View style={styles.bannerButton}>
+                            <CustomText variant="xs" weight="bold" color={Colors.white}>
+                                View Bids →
+                            </CustomText>
                         </View>
                     </View>
+                    <Text style={styles.bannerEmoji}>🎉</Text>
                 </View>
 
-                {/* Category Chips */}
-                <View style={styles.categoriesSection}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.categoryList}>
-                        {mockCategories.map(cat => {
-                            const isActive = selectedCategory === cat.id;
-                            return (
-                                <TouchableOpacity
-                                    key={cat.id}
-                                    onPress={() => setSelectedCategory(cat.id)}
-                                    activeOpacity={0.8}
-                                    style={[
-                                        styles.categoryChip,
-                                        isActive && {
-                                            backgroundColor: Colors.primary,
-                                            borderColor: Colors.primary,
-                                        },
-                                    ]}>
-                                    <Text style={styles.catIcon}>{cat.icon}</Text>
-                                    <Text
-                                        style={[
-                                            styles.catLabel,
-                                            isActive && { color: Colors.white, fontWeight: '700' },
-                                        ]}>
-                                        {cat.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </ScrollView>
+                {/* Categories */}
+                <CategoryList categories={MOCK_CATEGORIES} />
+
+                {/* Urgent Buyer Requests */}
+                <View style={styles.sectionHeader}>
+                    <CustomText variant="lg" weight="bold">Urgent Requests</CustomText>
+                    <CustomText variant="sm" weight="500" color={Colors.primary}>See All</CustomText>
                 </View>
 
-                {/* Trending Deals */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>🔥 Trending Deals</Text>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.cardsRow}
+                >
+                    {MOCK_REQUESTS.map((request) => (
+                        <BuyerRequestCard
+                            key={request.id}
+                            title={request.title}
+                            budget={request.budget}
+                            quotesReceived={request.quotesReceived}
+                            timeRemaining={request.timeRemaining}
+                            imageUrl={request.imageUrl}
+                            isFavorite={request.isFavorite}
+                        />
+                    ))}
+                </ScrollView>
+
+                {/* Recommended Filter Tabs */}
+                <View style={[styles.sectionHeader, { marginTop: Spacing.xl }]}>
+                    <CustomText variant="lg" weight="bold">Recommended</CustomText>
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabs}>
+                    {FILTER_TABS.map((tab, idx) => (
                         <TouchableOpacity
-                            onPress={() => navigation.navigate('Results', { query: 'trending' })}>
-                            <Text style={styles.seeAll}>See all →</Text>
+                            key={tab}
+                            onPress={() => setActiveFilter(idx)}
+                            style={[styles.filterTab, activeFilter === idx && styles.filterTabActive]}>
+                            <CustomText
+                                variant="sm"
+                                weight={activeFilter === idx ? '700' : '500'}
+                                color={activeFilter === idx ? Colors.white : Colors.textSecondary}
+                            >
+                                {tab}
+                            </CustomText>
                         </TouchableOpacity>
-                    </View>
-                    <FlatList
-                        data={trending}
-                        keyExtractor={item => item.id}
-                        renderItem={({ item }) => (
-                            <DealCard
-                                product={item}
-                                onPress={() =>
-                                    navigation.navigate('ProductDetail', { productId: item.id })
-                                }
+                    ))}
+                </ScrollView>
+
+                {/* Recommended Grid */}
+                <View style={styles.gridContainer}>
+                    {MOCK_REQUESTS.map((request) => (
+                        <View key={`grid-${request.id}`} style={styles.gridItem}>
+                            <BuyerRequestCard
+                                title={request.title}
+                                budget={request.budget}
+                                quotesReceived={request.quotesReceived}
+                                timeRemaining={request.timeRemaining}
+                                imageUrl={request.imageUrl}
                             />
-                        )}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.horizontalList}
-                    />
+                        </View>
+                    ))}
                 </View>
 
-                {/* Products Grid */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <View>
-                            <Text style={styles.sectionTitle}>
-                                {selectedCategory === 'all'
-                                    ? '🛍️ All Products'
-                                    : mockCategories.find(c => c.id === selectedCategory)?.label}
-                            </Text>
-                            <Text style={styles.countText}>
-                                {products.length} items
-                            </Text>
-                        </View>
-                        <TouchableOpacity>
-                            <Text style={styles.seeAll}>Filter ⚙️</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {loading ? (
-                        <View style={styles.productGrid}>
-                            {[1, 2, 3, 4].map(i => (
-                                <View key={i} style={styles.gridItem}>
-                                    <SkeletonCard />
-                                </View>
-                            ))}
-                        </View>
-                    ) : (
-                        <View style={styles.productGrid}>
-                            {products.map(product => (
-                                <View key={product.id} style={styles.gridItem}>
-                                    <ProductCard
-                                        product={product}
-                                        onPress={() =>
-                                            navigation.navigate('ProductDetail', {
-                                                productId: product.id,
-                                            })
-                                        }
-                                    />
-                                </View>
-                            ))}
-                        </View>
-                    )}
-                </View>
+                {/* Bottom Padding for Floating Tab Bar */}
+                <View style={styles.bottomSpacer} />
             </ScrollView>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    scroll: { paddingBottom: 110 },
-
-    searchSection: {
-        paddingHorizontal: Spacing.base,
-        paddingTop: Spacing.md,
-        paddingBottom: Spacing.xs,
-        gap: Spacing.sm,
+    container: {
+        flex: 1,
+        backgroundColor: Colors.background,
     },
-    chipRow: {
-        flexDirection: 'row',
-        gap: Spacing.xs,
-        flexWrap: 'wrap',
+    scrollContent: {
+        paddingTop: Spacing.xs,
     },
-    chip: {
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 5,
-        borderRadius: BorderRadius.full,
-    },
-    chipText: {
-        color: Colors.white,
-        fontSize: Typography.xs,
-        fontWeight: '700',
-    },
-    chipOutline: {
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 5,
-        borderRadius: BorderRadius.full,
-        backgroundColor: Colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: Colors.surfaceBorder,
-    },
-    chipOutlineText: {
-        color: Colors.textSecondary,
-        fontSize: Typography.xs,
-        fontWeight: '600',
-    },
-
-    categoriesSection: {
-        marginTop: Spacing.md,
-    },
-    categoryList: {
-        paddingHorizontal: Spacing.base,
-        gap: Spacing.sm,
-    },
-    categoryChip: {
+    bannerContainer: {
+        marginHorizontal: Spacing.base,
+        marginTop: Spacing.base,
+        marginBottom: Spacing.sm,
+        backgroundColor: Colors.accentLight,
+        borderRadius: 24,
+        padding: Spacing.xl,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 5,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs + 1,
-        borderRadius: BorderRadius.full,
-        backgroundColor: Colors.surfaceElevated,
+        justifyContent: 'space-between',
         borderWidth: 1,
         borderColor: Colors.surfaceBorder,
     },
-    catIcon: { fontSize: 14 },
-    catLabel: {
-        fontSize: Typography.sm,
-        color: Colors.textSecondary,
-        fontWeight: '500',
+    bannerContent: {
+        flex: 1,
+        paddingRight: Spacing.sm,
     },
-
-    section: {
-        paddingHorizontal: Spacing.base,
-        marginTop: Spacing.xl,
+    bannerSub: {
+        marginTop: 4,
+        marginBottom: Spacing.md,
+    },
+    bannerButton: {
+        backgroundColor: Colors.primaryDark,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 8,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+    },
+    bannerEmoji: {
+        fontSize: 48,
     },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.base,
         marginBottom: Spacing.md,
+        marginTop: Spacing.base,
     },
-    sectionTitle: {
-        color: Colors.textPrimary,
-        fontSize: Typography.lg,
-        fontWeight: '800',
-        letterSpacing: -0.3,
+    cardsRow: {
+        paddingLeft: Spacing.base,
+        paddingRight: Spacing.sm,
     },
-    countText: {
-        color: Colors.textMuted,
-        fontSize: Typography.xs,
-        marginTop: 2,
-    },
-    seeAll: {
-        color: Colors.primary,
-        fontSize: Typography.sm,
-        fontWeight: '600',
-        marginTop: 3,
-    },
-    horizontalList: {
-        paddingRight: Spacing.base,
-    },
-    productGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
+    filterTabs: {
+        paddingHorizontal: Spacing.base,
+        marginBottom: Spacing.md,
         gap: Spacing.sm,
     },
-    gridItem: { width: '48.5%' },
+    filterTab: {
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: Colors.accentLight,
+        borderWidth: 1,
+        borderColor: Colors.surfaceBorder,
+    },
+    filterTabActive: {
+        backgroundColor: Colors.primaryDark,
+        borderColor: Colors.primaryDark,
+    },
+    gridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        paddingHorizontal: Spacing.base,
+        gap: Spacing.sm,
+    },
+    gridItem: {
+        width: '48%',
+    },
+    bottomSpacer: {
+        height: 120,
+    },
 });

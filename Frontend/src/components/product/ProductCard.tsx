@@ -40,7 +40,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, styl
         else addToWishlist(product);
     };
 
-    const lowestPrice = Math.min(...product.storePrices.map(s => s.price));
+    const storePrices = product.storePrices ?? [];
+    const lowestPrice = storePrices.length > 0
+        ? Math.min(...storePrices.map(s => s.price))
+        : product.originalPrice;
     const discountPct = Math.round(((product.originalPrice - lowestPrice) / product.originalPrice) * 100);
 
     return (

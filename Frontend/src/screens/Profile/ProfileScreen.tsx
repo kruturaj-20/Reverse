@@ -11,32 +11,39 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { RootStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 
-const MENU_SECTIONS = [
+interface MenuItem {
+    iconName: string;
+    label: string;
+    sub: string;
+}
+
+const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
     {
         title: 'Account',
         items: [
-            { icon: '📦', label: 'My Orders', sub: '5 active orders' },
-            { icon: '📍', label: 'Saved Addresses', sub: '2 saved' },
-            { icon: '💳', label: 'Payment Methods', sub: 'UPI, Cards' },
+            { iconName: 'cube-outline', label: 'My Orders', sub: '5 active orders' },
+            { iconName: 'location-outline', label: 'Saved Addresses', sub: '2 saved' },
+            { iconName: 'card-outline', label: 'Payment Methods', sub: 'UPI, Cards' },
         ],
     },
     {
         title: 'Preferences',
         items: [
-            { icon: '🔔', label: 'Notifications', sub: 'Price alerts on' },
-            { icon: '⚙️', label: 'Settings', sub: 'Language, currency' },
+            { iconName: 'notifications-outline', label: 'Notifications', sub: 'Price alerts on' },
+            { iconName: 'settings-outline', label: 'Settings', sub: 'Language, currency' },
         ],
     },
     {
         title: 'Support',
         items: [
-            { icon: '❓', label: 'Help & Support', sub: 'FAQs, chat' },
-            { icon: '⭐', label: 'Rate the App', sub: 'Love us? Tell others!' },
-            { icon: '📋', label: 'Privacy Policy', sub: '' },
+            { iconName: 'help-circle-outline', label: 'Help & Support', sub: 'FAQs, chat' },
+            { iconName: 'star-outline', label: 'Rate the App', sub: 'Love us? Tell others!' },
+            { iconName: 'document-text-outline', label: 'Privacy Policy', sub: '' },
         ],
     },
 ];
@@ -56,7 +63,7 @@ export const ProfileScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView>
                 {/* Gradient Header */}
                 <LinearGradient
@@ -78,18 +85,19 @@ export const ProfileScreen = () => {
                     <Text style={styles.userEmail}>{user?.email || 'Sign in to access profile'}</Text>
 
                     <TouchableOpacity style={styles.editBtn}>
-                        <Text style={styles.editBtnText}>✏️ Edit Profile</Text>
+                        <Icon name="pencil-outline" size={13} color={Colors.primary} style={{ marginRight: 4 }} />
+                        <Text style={styles.editBtnText}>Edit Profile</Text>
                     </TouchableOpacity>
 
                     {/* Stats row */}
                     <View style={styles.statsRow}>
                         {[
-                            { label: 'Saved', value: '12', icon: '❤️' },
-                            { label: 'Orders', value: '5', icon: '📦' },
-                            { label: 'Alerts', value: '8', icon: '🔔' },
+                            { label: 'Saved', value: '12', iconName: 'heart', iconColor: Colors.error },
+                            { label: 'Orders', value: '5', iconName: 'cube-outline', iconColor: Colors.primary },
+                            { label: 'Alerts', value: '8', iconName: 'notifications-outline', iconColor: Colors.warning },
                         ].map(stat => (
                             <View key={stat.label} style={styles.statCard}>
-                                <Text style={styles.statIcon}>{stat.icon}</Text>
+                                <Icon name={stat.iconName} size={20} color={stat.iconColor} />
                                 <Text style={styles.statValue}>{stat.value}</Text>
                                 <Text style={styles.statLabel}>{stat.label}</Text>
                             </View>
@@ -108,11 +116,15 @@ export const ProfileScreen = () => {
                         style={styles.aiGradient}>
                         <View style={styles.aiRow}>
                             <View>
-                                <Text style={styles.aiTitle}>✨ AI Search Usage</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Icon name="sparkles" size={14} color={Colors.primary} />
+                                    <Text style={styles.aiTitle}>AI Search Usage</Text>
+                                </View>
                                 <Text style={styles.aiText}>Free plan · 23 searches used</Text>
                             </View>
                             <TouchableOpacity style={styles.upgradeBtn}>
-                                <Text style={styles.upgradeBtnText}>⚡ Upgrade</Text>
+                                <Icon name="flash" size={13} color={Colors.white} style={{ marginRight: 3 }} />
+                                <Text style={styles.upgradeBtnText}>Upgrade</Text>
                             </TouchableOpacity>
                         </View>
                         <View style={styles.progressBar}>
@@ -136,7 +148,7 @@ export const ProfileScreen = () => {
                                     ]}
                                     activeOpacity={0.7}>
                                     <View style={styles.menuIconWrap}>
-                                        <Text style={styles.menuIcon}>{item.icon}</Text>
+                                        <Icon name={item.iconName} size={18} color={Colors.primary} />
                                     </View>
                                     <View style={styles.menuContent}>
                                         <Text style={styles.menuLabel}>{item.label}</Text>
@@ -144,7 +156,7 @@ export const ProfileScreen = () => {
                                             <Text style={styles.menuSub}>{item.sub}</Text>
                                         ) : null}
                                     </View>
-                                    <Text style={styles.chevron}>›</Text>
+                                    <Icon name="chevron-forward" size={16} color={Colors.textMuted} />
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -156,12 +168,12 @@ export const ProfileScreen = () => {
                     <View style={styles.menuCard}>
                         <TouchableOpacity style={styles.menuRow} activeOpacity={0.7} onPress={handleLogout}>
                             <View style={[styles.menuIconWrap, styles.logoutIconWrap]}>
-                                <Text style={styles.menuIcon}>🚪</Text>
+                                <Icon name="log-out-outline" size={18} color={Colors.error} />
                             </View>
                             <View style={styles.menuContent}>
                                 <Text style={[styles.menuLabel, styles.logoutLabel]}>Logout</Text>
                             </View>
-                            <Text style={styles.chevron}>›</Text>
+                            <Icon name="chevron-forward" size={16} color={Colors.textMuted} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -174,7 +186,7 @@ export const ProfileScreen = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
-    scroll: { paddingBottom: 110 },
+    scroll: { paddingBottom: 130 },
 
     header: {
         paddingHorizontal: Spacing.base,
@@ -211,6 +223,8 @@ const styles = StyleSheet.create({
     userName: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '800' },
     userEmail: { color: Colors.textMuted, fontSize: Typography.sm },
     editBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Colors.primaryGhost,
         borderRadius: BorderRadius.full,
         paddingHorizontal: Spacing.base,
@@ -261,6 +275,8 @@ const styles = StyleSheet.create({
     aiTitle: { color: Colors.textPrimary, fontSize: Typography.base, fontWeight: '700' },
     aiText: { color: Colors.textSecondary, fontSize: Typography.sm, marginTop: 2 },
     upgradeBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Colors.primary,
         borderRadius: BorderRadius.full,
         paddingHorizontal: Spacing.md,
@@ -322,15 +338,13 @@ const styles = StyleSheet.create({
         borderColor: Colors.surfaceBorder,
     },
     logoutIconWrap: {
-        backgroundColor: Colors.accent + '18',
-        borderColor: Colors.accent + '44',
+        backgroundColor: Colors.error + '15',
+        borderColor: Colors.error + '30',
     },
-    menuIcon: { fontSize: 18 },
     menuContent: { flex: 1 },
     menuLabel: { color: Colors.textPrimary, fontSize: Typography.base, fontWeight: '600' },
     menuSub: { color: Colors.textMuted, fontSize: Typography.xs, marginTop: 1 },
-    logoutLabel: { color: Colors.accent },
-    chevron: { color: Colors.textMuted, fontSize: Typography.xl, fontWeight: '300' },
+    logoutLabel: { color: Colors.error },
 
     version: {
         color: Colors.textMuted,

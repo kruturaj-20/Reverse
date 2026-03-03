@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { RootStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../theme';
 import { ProductCard } from '../../components/product/ProductCard';
+import { EmptyState } from '../../components/common/EmptyState';
 import { Product } from '../../data/mockProducts';
 import { textSearch } from '../../services/search';
 
@@ -49,7 +51,6 @@ export const ResultsScreen = () => {
             let maxPrice: number | undefined;
             let minPrice: number | undefined;
 
-            // Map sort option to price filter params
             const sortParamMap: Record<string, string | undefined> = {
                 'Price: Low to High': 'price_asc',
                 'Price: High to Low': 'price_desc',
@@ -65,7 +66,6 @@ export const ResultsScreen = () => {
 
             let finalResults = res.data;
 
-            // Client-side store filter
             if (selectedStore !== 'All Stores') {
                 finalResults = finalResults.filter(p =>
                     p.storePrices?.some(sp =>
@@ -74,7 +74,6 @@ export const ResultsScreen = () => {
                 );
             }
 
-            // Client-side sort (for price/rating sorting on returned results)
             if (selectedSort === 'Price: Low to High') {
                 finalResults = [...finalResults].sort((a, b) => a.price - b.price);
             } else if (selectedSort === 'Price: High to Low') {
@@ -95,12 +94,12 @@ export const ResultsScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView>
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Text style={styles.backIcon}>←</Text>
+                        <Icon name="arrow-back" size={22} color={Colors.textPrimary} />
                     </TouchableOpacity>
                     <View style={styles.headerCenter}>
                         <Text style={styles.queryText} numberOfLines={1}>
@@ -111,7 +110,13 @@ export const ResultsScreen = () => {
                         </Text>
                     </View>
                     <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilters(!showFilters)}>
-                        <Text style={styles.filterText}>⚙️ Filter</Text>
+                        <Icon
+                            name={showFilters ? 'options' : 'options-outline'}
+                            size={16}
+                            color={showFilters ? Colors.primary : Colors.textSecondary}
+                            style={{ marginRight: 4 }}
+                        />
+                        <Text style={[styles.filterText, showFilters && styles.filterTextActive]}>Filter</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -145,19 +150,20 @@ export const ResultsScreen = () => {
             {/* AI Understanding Badge */}
             {!!query && !loading && !error && (
                 <View style={styles.aiBadge}>
-                    <Text style={styles.aiBadgeText}>✨ AI searched: "{aiQuery}"</Text>
+                    <Icon name="sparkles" size={12} color={Colors.primaryLight} style={{ marginRight: 4 }} />
+                    <Text style={styles.aiBadgeText}>AI searched: "{aiQuery}"</Text>
                 </View>
             )}
 
             {loading ? (
                 <View style={styles.empty}>
-                    <Text style={styles.loadingIcon}>✨</Text>
+                    <Icon name="search" size={48} color={Colors.surfaceBorder} />
                     <Text style={styles.emptyTitle}>AI Searching...</Text>
                     <Text style={styles.emptyText}>Finding the best products for you</Text>
                 </View>
             ) : error ? (
                 <View style={styles.empty}>
-                    <Text style={styles.emptyIcon}>⚠️</Text>
+                    <Icon name="warning-outline" size={56} color={Colors.warning} />
                     <Text style={styles.emptyTitle}>Search Failed</Text>
                     <Text style={styles.emptyText}>{error}</Text>
                     <TouchableOpacity style={styles.retryBtn} onPress={fetchResults}>
@@ -165,11 +171,11 @@ export const ResultsScreen = () => {
                     </TouchableOpacity>
                 </View>
             ) : results.length === 0 ? (
-                <View style={styles.empty}>
-                    <Text style={styles.emptyIcon}>🔍</Text>
-                    <Text style={styles.emptyTitle}>No results found</Text>
-                    <Text style={styles.emptyText}>Try a different search or adjust your filters</Text>
-                </View>
+                <EmptyState
+                    icon="🔍"
+                    title="No results found"
+                    description="Try a different search or adjust your filters."
+                />
             ) : (
                 <FlatList
                     data={results}
@@ -194,33 +200,84 @@ export const ResultsScreen = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm, gap: Spacing.sm },
-    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    backIcon: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '300' },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.base,
+        paddingVertical: Spacing.sm,
+        gap: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.surfaceBorder,
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: BorderRadius.md,
+        backgroundColor: Colors.accentLight,
+    },
     headerCenter: { flex: 1 },
     queryText: { color: Colors.textPrimary, fontSize: Typography.md, fontWeight: '700' },
     resultCount: { color: Colors.textMuted, fontSize: Typography.xs, marginTop: 1 },
-    filterBtn: { backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderWidth: 1, borderColor: Colors.surfaceBorder },
+    filterBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.accentLight,
+        borderRadius: BorderRadius.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderWidth: 1,
+        borderColor: Colors.surfaceBorder,
+    },
     filterText: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '600' },
+    filterTextActive: { color: Colors.primary },
     sortRow: { marginBottom: Spacing.xs, paddingVertical: Spacing.xs },
-    sortChip: { paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.surfaceBorder },
+    sortChip: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 6,
+        borderRadius: BorderRadius.full,
+        backgroundColor: Colors.accentLight,
+        borderWidth: 1,
+        borderColor: Colors.surfaceBorder,
+    },
     sortChipActive: { backgroundColor: Colors.primaryGhost, borderColor: Colors.primary },
     sortChipText: { color: Colors.textMuted, fontSize: Typography.xs, fontWeight: '500' },
     sortChipTextActive: { color: Colors.primary, fontWeight: '700' },
-    storeChip: { paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.surfaceBorder },
-    storeChipActive: { backgroundColor: Colors.accent + '22', borderColor: Colors.accent },
+    storeChip: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 6,
+        borderRadius: BorderRadius.full,
+        backgroundColor: Colors.accentLight,
+        borderWidth: 1,
+        borderColor: Colors.surfaceBorder,
+    },
+    storeChipActive: { backgroundColor: Colors.primaryGhost, borderColor: Colors.primary },
     storeChipText: { color: Colors.textMuted, fontSize: Typography.xs, fontWeight: '500' },
-    storeChipTextActive: { color: Colors.accent, fontWeight: '700' },
-    aiBadge: { marginHorizontal: Spacing.base, marginBottom: Spacing.sm, backgroundColor: Colors.primaryGhost, borderRadius: BorderRadius.md, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.primary + '33' },
+    storeChipTextActive: { color: Colors.primary, fontWeight: '700' },
+    aiBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: Spacing.base,
+        marginVertical: Spacing.sm,
+        backgroundColor: Colors.primaryGhost,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.primary + '33',
+    },
     aiBadgeText: { color: Colors.primaryLight, fontSize: Typography.xs, fontWeight: '600' },
-    list: { padding: Spacing.base, paddingBottom: 100 },
+    list: { padding: Spacing.base, paddingBottom: 120 },
     row: { gap: Spacing.sm },
     gridItem: { flex: 1 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingBottom: 80 },
-    loadingIcon: { fontSize: 48 },
-    emptyIcon: { fontSize: 60 },
     emptyTitle: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '700' },
     emptyText: { color: Colors.textMuted, fontSize: Typography.base, textAlign: 'center', paddingHorizontal: Spacing.xl },
-    retryBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm },
+    retryBtn: {
+        backgroundColor: Colors.primary,
+        borderRadius: BorderRadius.full,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.sm,
+    },
     retryText: { color: Colors.white, fontWeight: '700', fontSize: Typography.base },
 });

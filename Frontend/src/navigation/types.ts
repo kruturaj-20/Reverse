@@ -14,6 +14,7 @@ export type RootStackParamList = {
     Results: { query?: string; category?: string; imageUri?: string };
     ProductDetail: { productId: string };
     ImageSearch: undefined;
+    InAppBrowser: { url: string; title?: string };
 };
 
 // Bottom Tabs

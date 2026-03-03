@@ -11,11 +11,13 @@ import {
     Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
-import { Colors, Typography, Spacing, BorderRadius } from '../../theme';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../theme';
 import { useWishlistStore } from '../../store/wishlistStore';
+import { EmptyState } from '../../components/common/EmptyState';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -37,11 +39,14 @@ export const WishlistScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView>
                 <View style={styles.header}>
                     <View>
-                        <Text style={styles.title}>❤️ Wishlist</Text>
+                        <View style={styles.titleRow}>
+                            <Icon name="heart" size={22} color={Colors.error} style={styles.titleIcon} />
+                            <Text style={styles.title}>Wishlist</Text>
+                        </View>
                         <Text style={styles.subtitle}>
                             {items.length} item{items.length !== 1 ? 's' : ''} saved
                         </Text>
@@ -49,29 +54,18 @@ export const WishlistScreen = () => {
                 </View>
             </SafeAreaView>
 
-            {items.length === 0 ? (
-                <View style={styles.empty}>
-                    <Text style={styles.emptyIcon}>🤍</Text>
-                    <Text style={styles.emptyTitle}>Nothing saved yet</Text>
-                    <Text style={styles.emptyText}>
-                        Tap the ❤️ on any product to save it here
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.browseBtn}
-                        onPress={() => navigation.navigate('MainTabs')}>
-                        <LinearGradient
-                            colors={[Colors.primary, Colors.accent]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.browseBtnGrad}>
-                            <Text style={styles.browseBtnText}>Browse Products</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
-            ) : loading && items.length === 0 ? (
+            {loading && items.length === 0 ? (
                 <View style={styles.empty}>
                     <Text style={styles.emptyTitle}>Loading wishlist...</Text>
                 </View>
+            ) : items.length === 0 ? (
+                <EmptyState
+                    icon="🤍"
+                    title="Nothing saved yet"
+                    description="Tap the heart on any product to save it here for later."
+                    actionLabel="Explore Products"
+                    onAction={() => navigation.navigate('MainTabs')}
+                />
             ) : (
                 <FlatList
                     data={items}
@@ -104,7 +98,7 @@ export const WishlistScreen = () => {
                                     />
                                     {discountPct > 0 && (
                                         <View style={styles.discountBadge}>
-                                            <Text style={styles.discountText}>{discountPct}%</Text>
+                                            <Text style={styles.discountText}>{discountPct}% OFF</Text>
                                         </View>
                                     )}
                                 </View>
@@ -126,18 +120,17 @@ export const WishlistScreen = () => {
                                     </View>
                                     {savings > 0 && (
                                         <Text style={styles.savings}>
-                                            You save ₹{savings.toLocaleString()} 🎉
+                                            You save ₹{savings.toLocaleString()}
                                         </Text>
                                     )}
 
                                     <View style={styles.cardFooter}>
                                         <View style={styles.alertBadge}>
-                                            <Text style={styles.alertText}>
-                                                🔔 Price Alert
-                                            </Text>
+                                            <Icon name="notifications-outline" size={11} color={Colors.warning} style={{ marginRight: 3 }} />
+                                            <Text style={styles.alertText}>Price Alert</Text>
                                         </View>
                                         <Text style={styles.storeCount}>
-                                            {item.storePrices.length} stores
+                                            {storePrices.length} stores
                                         </Text>
                                     </View>
                                 </View>
@@ -146,7 +139,7 @@ export const WishlistScreen = () => {
                                 <TouchableOpacity
                                     onPress={() => confirmRemove(item.id, item.name)}
                                     style={styles.removeBtn}>
-                                    <Text style={styles.removeIcon}>✕</Text>
+                                    <Icon name="close" size={18} color={Colors.textMuted} />
                                 </TouchableOpacity>
                             </TouchableOpacity>
                         );
@@ -168,6 +161,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Colors.surfaceBorder,
     },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    titleIcon: {
+        marginRight: Spacing.xs,
+    },
     title: {
         color: Colors.textPrimary,
         fontSize: Typography.xxl,
@@ -177,6 +177,7 @@ const styles = StyleSheet.create({
         color: Colors.textMuted,
         fontSize: Typography.xs,
         marginTop: 2,
+        marginLeft: 2,
     },
 
     empty: {
@@ -186,7 +187,6 @@ const styles = StyleSheet.create({
         gap: Spacing.md,
         paddingBottom: 80,
     },
-    emptyIcon: { fontSize: 72 },
     emptyTitle: {
         color: Colors.textPrimary,
         fontSize: Typography.xl,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
 
     list: {
         padding: Spacing.base,
-        paddingBottom: 110,
+        paddingBottom: 120,
         gap: Spacing.sm,
     },
     card: {
@@ -226,6 +226,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: Colors.cardBorder,
+        ...Shadows.sm,
     },
     imageWrap: {
         position: 'relative',
@@ -238,14 +239,14 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: Spacing.xs,
         left: Spacing.xs,
-        backgroundColor: Colors.accent,
+        backgroundColor: Colors.primary,
         borderRadius: BorderRadius.xs,
         paddingHorizontal: 5,
         paddingVertical: 2,
     },
     discountText: {
         color: Colors.white,
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '800',
     },
     cardContent: {
@@ -259,6 +260,7 @@ const styles = StyleSheet.create({
         fontSize: Typography.xs,
         fontWeight: '700',
         textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     cardName: {
         color: Colors.textPrimary,
@@ -293,6 +295,8 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     alertBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Colors.warning + '22',
         borderRadius: BorderRadius.xs,
         paddingHorizontal: 6,
@@ -310,9 +314,5 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
         alignItems: 'center',
         paddingTop: Spacing.md,
-    },
-    removeIcon: {
-        color: Colors.textMuted,
-        fontSize: Typography.base,
     },
 });

@@ -19,7 +19,10 @@ interface DealCardProps {
 }
 
 export const DealCard: React.FC<DealCardProps> = ({ product, onPress }) => {
-    const lowestPrice = Math.min(...product.storePrices.map(s => s.price));
+    const storePrices = product.storePrices ?? [];
+    const lowestPrice = storePrices.length > 0
+        ? Math.min(...storePrices.map(s => s.price))
+        : product.originalPrice;
     const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlistStore();
     const inWishlist = isInWishlist(product.id);
     const heartScale = useRef(new Animated.Value(1)).current;

@@ -11,6 +11,7 @@ import {
     Linking,
     FlatList,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -66,16 +67,19 @@ export const ProductDetailScreen = () => {
 
     if (loading) {
         return (
-            <View style={styles.container}>
-                <Text style={{ color: Colors.textPrimary, textAlign: 'center', marginTop: 100 }}>Loading...</Text>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={{ marginTop: Spacing.md, color: Colors.textSecondary, fontSize: Typography.sm }}>Loading Product...</Text>
             </View>
         );
     }
 
     if (!product) {
         return (
-            <View style={styles.container}>
-                <Text style={{ color: Colors.textPrimary, textAlign: 'center', marginTop: 100 }}>Product not found</Text>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ fontSize: 48, marginBottom: Spacing.sm }}>🔍</Text>
+                <Text style={{ color: Colors.textPrimary, fontSize: Typography.lg, fontWeight: '700' }}>Product not found</Text>
+                <Text style={{ color: Colors.textSecondary, marginTop: Spacing.xs }}>It looks like this item is no longer available.</Text>
             </View>
         );
     }
@@ -100,12 +104,7 @@ export const ProductDetailScreen = () => {
     };
 
     const handleBuyNow = async (affiliateUrl: string, storeName: string) => {
-        const canOpen = await Linking.canOpenURL(affiliateUrl);
-        if (canOpen) {
-            await Linking.openURL(affiliateUrl);
-        } else {
-            Alert.alert(`Open ${storeName}`, `Visit: ${affiliateUrl}`);
-        }
+        navigation.navigate('InAppBrowser', { url: affiliateUrl, title: storeName });
     };
 
 

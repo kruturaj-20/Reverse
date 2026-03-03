@@ -1,75 +1,113 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableWithoutFeedback } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { BottomTabParamList } from './types';
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { SearchScreen } from '../screens/Search/SearchScreen';
 import { WishlistScreen } from '../screens/Wishlist/WishlistScreen';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
-import { Colors, Typography, Spacing, BorderRadius } from '../theme';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../theme';
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
-const TABS = [
-    { name: 'Home', icon: '🏠', label: 'Home' },
-    { name: 'Search', icon: '🔎', label: 'Explore' },
-    { name: 'Wishlist', icon: '❤️', label: 'Wishlist' },
-    { name: 'Profile', icon: '👤', label: 'Profile' },
+interface TabItem {
+    name: string;
+    label: string;
+    icon: string;
+    iconOutline: string;
+}
+
+const TABS: TabItem[] = [
+    { name: 'Home', label: 'Home', icon: 'home', iconOutline: 'home-outline' },
+    { name: 'Search', label: 'Explore', icon: 'search', iconOutline: 'search-outline' },
+    { name: 'Wishlist', label: 'Wishlist', icon: 'heart', iconOutline: 'heart-outline' },
+    { name: 'Profile', label: 'Profile', icon: 'person', iconOutline: 'person-outline' },
 ];
 
 const TabIcon = ({
-    icon,
+    iconName,
     label,
     focused,
+    onPress,
 }: {
-    icon: string;
+    iconName: string;
     label: string;
     focused: boolean;
+    onPress: () => void;
 }) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
-    const bgAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        Animated.parallel([
-            Animated.spring(scaleAnim, {
-                toValue: focused ? 1.15 : 1,
-                useNativeDriver: true,
-                tension: 120,
-                friction: 7,
-            }),
-            Animated.timing(bgAnim, {
-                toValue: focused ? 1 : 0,
-                duration: 200,
-                useNativeDriver: false,
-            }),
-        ]).start();
+        Animated.spring(scaleAnim, {
+            toValue: focused ? 1.1 : 1,
+            useNativeDriver: true,
+            tension: 130,
+            friction: 8,
+        }).start();
     }, [focused]);
 
-    const bgColor = bgAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['transparent', Colors.primary + '28'],
-    });
-
     return (
-        <Animated.View style={[tabStyles.iconWrapper, { backgroundColor: bgColor }]}>
-            <Animated.Text
-                style={[tabStyles.iconText, { transform: [{ scale: scaleAnim }] }]}>
-                {icon}
-            </Animated.Text>
-        </Animated.View>
+        <TouchableWithoutFeedback onPress={onPress}>
+            <Animated.View
+                style={[
+                    tabStyles.iconWrapper,
+                    focused && tabStyles.iconWrapperActive,
+                    { transform: [{ scale: scaleAnim }] },
+                ]}>
+                <Icon
+                    name={iconName}
+                    size={22}
+                    color={focused ? Colors.white : Colors.textMuted}
+                />
+                <Text style={[tabStyles.label, focused && tabStyles.labelActive]}>
+                    {label}
+                </Text>
+            </Animated.View>
+        </TouchableWithoutFeedback>
+    );
+};
+
+// Custom Tab Bar component
+const FloatingTabBar = ({ state, descriptors, navigation }: any) => {
+    return (
+        <View style={tabStyles.tabBarContainer}>
+            {state.routes.map((route: any, index: number) => {
+                const isFocused = state.index === index;
+                const tabData = TABS.find(t => t.name === route.name) || TABS[0];
+
+                const onPress = () => {
+                    const event = navigation.emit({
+                        type: 'tabPress',
+                        target: route.key,
+                        canPreventDefault: true,
+                    });
+
+                    if (!isFocused && !event.defaultPrevented) {
+                        navigation.navigate(route.name);
+                    }
+                };
+
+                return (
+                    <TabIcon
+                        key={route.key}
+                        iconName={isFocused ? tabData.icon : tabData.iconOutline}
+                        label={tabData.label}
+                        focused={isFocused}
+                        onPress={onPress}
+                    />
+                );
+            })}
+        </View>
     );
 };
 
 export const BottomTabNavigator = () => {
     return (
         <Tab.Navigator
+            tabBar={(props) => <FloatingTabBar {...props} />}
             screenOptions={{
                 headerShown: false,
-                tabBarStyle: tabStyles.tabBar,
-                tabBarLabelStyle: tabStyles.label,
-                tabBarActiveTintColor: Colors.primary,
-                tabBarInactiveTintColor: Colors.textMuted,
-                tabBarItemStyle: tabStyles.tabItem,
             }}>
             {TABS.map(tab => (
                 <Tab.Screen
@@ -84,12 +122,6 @@ export const BottomTabNavigator = () => {
                                     ? WishlistScreen
                                     : ProfileScreen
                     }
-                    options={{
-                        tabBarLabel: tab.label,
-                        tabBarIcon: ({ focused }) => (
-                            <TabIcon icon={tab.icon} label={tab.label} focused={focused} />
-                        ),
-                    }}
                 />
             ))}
         </Tab.Navigator>
@@ -97,40 +129,39 @@ export const BottomTabNavigator = () => {
 };
 
 const tabStyles = StyleSheet.create({
-    tabBar: {
+    tabBarContainer: {
         position: 'absolute',
-        bottom: 12,
-        left: 16,
-        right: 16,
-        backgroundColor: Colors.surface,
-        borderRadius: BorderRadius.xxl,
-        borderWidth: 1,
-        borderColor: Colors.surfaceBorder,
+        bottom: 24,
+        left: '8%',
+        right: '8%',
+        backgroundColor: Colors.primaryDark,
+        borderRadius: BorderRadius.full,
         height: 68,
-        paddingBottom: 6,
-        paddingTop: 6,
-        elevation: 20,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-    },
-    tabItem: {
-        borderRadius: BorderRadius.xxl,
-    },
-    label: {
-        fontSize: Typography.xs,
-        fontWeight: '600',
-        marginTop: 2,
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.sm,
+        ...Shadows.lg,
     },
     iconWrapper: {
-        width: 44,
-        height: 30,
-        borderRadius: BorderRadius.lg,
+        flex: 1,
+        height: 52,
         alignItems: 'center',
         justifyContent: 'center',
+        borderRadius: BorderRadius.xxl,
+        gap: 3,
     },
-    iconText: {
-        fontSize: 19,
+    iconWrapperActive: {
+        backgroundColor: Colors.primary,
+    },
+    label: {
+        fontSize: 10,
+        color: Colors.textMuted,
+        fontWeight: '500',
+        letterSpacing: 0.2,
+    },
+    labelActive: {
+        color: Colors.white,
+        fontWeight: '700',
     },
 });

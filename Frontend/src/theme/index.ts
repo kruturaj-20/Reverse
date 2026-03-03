@@ -1,75 +1,68 @@
 export const Colors = {
-  // Primary palette
-  primary: '#6C63FF',
-  primaryDark: '#4B44CC',
-  primaryLight: '#A89FFF',
-  primaryGhost: '#6C63FF18',
+  // Primary palette (Deep Slate/Teal from reference)
+  primary: '#2E4C50', // The deep teal used for buttons and the tab bar
+  primaryDark: '#1A2F33', // Darker variant for pressed states or headers
+  primaryLight: '#4A6B6F',
+  primaryGhost: '#2E4C5015', // Super light tint for active states
 
-  // Accent
-  accent: '#FF4D6D',
-  accentLight: '#FF4D6D22',
+  // Secondary / Accent
+  accent: '#E6F0F2',  // Light grayish teal for secondary backgrounds (like search bar)
+  accentLight: '#F5F9FA', // Very light tint for backgrounds
 
-  // Neutrals
-  background: '#0F0F1A',
-  headerBg: '#0D0D1A',
-  surface: '#1A1A2E',
-  card: '#1C1C2E',
-  surfaceElevated: '#22223A',
-  surfaceBorder: '#2E2E4A',
-  cardBorder: '#2A2A3E',
+  // Neutrals (Clean, minimal palette)
+  background: '#FFFFFF', // Clean white background
+  headerBg: '#FFFFFF',
+  surface: '#FFFFFF', // White surfaces for cards
+  card: '#FFFFFF',
+  surfaceElevated: '#FFFFFF',
+  surfaceBorder: '#F0F0F0', // Very light gray borders for structure
+  cardBorder: '#EAEAEA',
 
   // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#A0A0C0',
-  textMuted: '#606080',
-  textInverse: '#0F0F1A',
+  textPrimary: '#111518', // Near black for strong readability
+  textSecondary: '#6B7A80', // Slate gray for secondary text
+  textMuted: '#9BA9AF',     // Lighter gray for placeholders/inactive
+  textInverse: '#FFFFFF',   // White text on primary backgrounds
 
   // Status
-  success: '#4CAF82',
-  warning: '#FFB74D',
-  error: '#FF5252',
-  info: '#29B6F6',
-
-  // Stores
-  amazon: '#FF9900',
-  flipkart: '#2874F0',
-  myntra: '#FF3F6C',
-  meesho: '#9B26B9',
-  ajio: '#E91E63',
-  snapdeal: '#E40046',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  error: '#D32F2F',
+  info: '#0288D1',
 
   // Misc
   white: '#FFFFFF',
   black: '#000000',
-  overlay: '#00000088',
-  divider: '#FFFFFF10',
   gold: '#FFD700',
+  overlay: 'rgba(0, 0, 0, 0.4)',
+  divider: '#EBEBEB',
+  transparent: 'transparent',
 };
 
 export const Typography = {
-  // Font families (set up vector fonts, fallback to system)
+  // Font families (using system default, but weights will be clean)
   fontRegular: 'System',
   fontMedium: 'System',
   fontSemiBold: 'System',
   fontBold: 'System',
 
-  // Sizes
-  xs: 10,
-  sm: 12,
-  base: 14,
-  md: 16,
-  lg: 18,
-  xl: 20,
-  xxl: 24,
-  xxxl: 30,
-  display: 36,
+  // Sizes for a modern scale
+  xs: 11,
+  sm: 13,
+  base: 15, // Slightly larger base for modern feel
+  md: 17,
+  lg: 19,
+  xl: 22,
+  xxl: 26,
+  xxxl: 32,
+  display: 40,
 };
 
 export const Spacing = {
   xs: 4,
   sm: 8,
   md: 12,
-  base: 16,
+  base: 16, // Typical padding
   lg: 20,
   xl: 24,
   xxl: 32,
@@ -77,36 +70,36 @@ export const Spacing = {
 };
 
 export const BorderRadius = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 28,
-  full: 999,
+  xs: 6,
+  sm: 10,
+  md: 14,
+  lg: 20, // For average cards
+  xl: 26, // For larger cards or the search bar
+  xxl: 36, // For fully pill-shaped items like the tab bar
+  full: 9999,
 };
 
 export const Shadows = {
-  sm: {
-    shadowColor: Colors.primary,
+  sm: { // Soft, barely visible shadow for subtle depth
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  md: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 2,
   },
-  lg: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
+  md: { // Standard soft shadow for cards
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
     shadowRadius: 16,
-    elevation: 10,
+    elevation: 4,
+  },
+  lg: { // Pronounced soft shadow for floating elements (like tab bar)
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
   },
 };
 
