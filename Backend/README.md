@@ -85,13 +85,23 @@ Headers: { "Authorization": "Bearer <accessToken>" }
 }
 ```
 
-**Place Order:**
+**Legacy Place Order:**
 ```json
 POST /orders
 Headers: { "Authorization": "Bearer <accessToken>" }
 {
   "shippingAddress": "123 Main St, Tech City"
 }
+```
+
+**Razorpay Checkout Flow:**
+1. `POST /orders/checkout` with a shipping address. Server will create a DB order and a Razorpay order, returning the razorpay `orderId` plus the public key.
+2. Invoke the Razorpay SDK on the client with the returned payload. After the user completes payment, call `POST /orders/verify` passing `orderId`, `razorpayPaymentId`, `razorpayOrderId`, and `razorpaySignature`.
+
+Environment variables required for Razorpay integration (add to `.env`):
+```
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
 ```
 
 ### 4. Search

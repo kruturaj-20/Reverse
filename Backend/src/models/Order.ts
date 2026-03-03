@@ -11,13 +11,25 @@ export interface IOrderItem {
     imageUrl: string;
 }
 
+export interface IOrderShippingAddress {
+    fullName: string;
+    phone: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+}
+
 export interface IOrder extends Document {
     userId: Types.ObjectId;
     items: IOrderItem[];
     totalAmount: number;
     paymentStatus: PaymentStatus;
     orderStatus: OrderStatus;
-    shippingAddress?: string;
+    shippingAddress?: IOrderShippingAddress;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
     createdAt: Date;
 }
 
@@ -67,6 +79,23 @@ const orderSchema = new Schema<IOrder>(
             default: 'pending',
         },
         shippingAddress: {
+            fullName: { type: String, default: '' },
+            phone: { type: String, default: '' },
+            street: { type: String, default: '' },
+            city: { type: String, default: '' },
+            state: { type: String, default: '' },
+            zipCode: { type: String, default: '' },
+        },
+        // Razorpay payment details (filled during checkout/verification)
+        razorpayOrderId: {
+            type: String,
+            default: '',
+        },
+        razorpayPaymentId: {
+            type: String,
+            default: '',
+        },
+        razorpaySignature: {
             type: String,
             default: '',
         },
