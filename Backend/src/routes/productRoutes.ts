@@ -7,6 +7,7 @@ import {
   deleteProduct,
   getBudgetBundle,
   getPersonalizedFeed,
+  getBundleSuggestions,
 } from "../controllers/productController";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";

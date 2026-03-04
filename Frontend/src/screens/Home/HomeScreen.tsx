@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,13 @@ import {
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Colors, Spacing, BorderRadius } from '../../theme';
+import { Colors, Spacing, BorderRadius, Typography } from '../../theme';
 import { HomeHeader } from '../../components/common/HomeHeader';
 import { FilterSearchBar } from '../../components/common/FilterSearchBar';
 import { CategoryList } from '../../components/common/CategoryList';
-import { BuyerRequestCard } from '../../components/common/BuyerRequestCard';
 import { CustomText } from '../../components/common/CustomText';
 import { productService } from '../../services/products';
+import { textSearch } from '../../services/search';
 import { Product } from '../../data/mockProducts';
 import { ProductCard } from '../../components/product/ProductCard';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,40 +29,6 @@ const MOCK_CATEGORIES = [
   { id: '5', name: 'Services', icon: '🛠️' },
 ];
 
-// Mock buyer requests (Reverse marketplace scenario)
-const MOCK_REQUESTS = [
-  {
-    id: '1',
-    title: 'Looking for a slightly used iPhone 13 Pro (Graphite)',
-    budget: 450,
-    quotesReceived: 3,
-    timeRemaining: 'Closing in: 04:12:30',
-    imageUrl:
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=300&auto=format&fit=crop',
-    isFavorite: false,
-  },
-  {
-    id: '2',
-    title: 'Need a customized wooden study table',
-    budget: 120,
-    quotesReceived: 0,
-    timeRemaining: 'Closing in: 12:45:00',
-    imageUrl:
-      'https://images.unsplash.com/photo-1595514535497-28e6791b86e0?q=80&w=300&auto=format&fit=crop',
-    isFavorite: true,
-  },
-  {
-    id: '3',
-    title: 'PlayStation 5 Disc Edition required',
-    budget: 400,
-    quotesReceived: 5,
-    timeRemaining: 'Closing in: 01:10:00',
-    imageUrl:
-      'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=300&auto=format&fit=crop',
-    isFavorite: false,
-  },
-];
-
 const FILTER_TABS = ['All', 'Newest', 'High Budget', 'Zero Quotes'];
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -71,8 +37,38 @@ export const HomeScreen = () => {
   const navigation = useNavigation<NavProp>();
   const [activeFilter, setActiveFilter] = useState(0);
   const [personalized, setPersonalized] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [aiPickId, setAiPickId] = useState<string | null>(null);
+  const [budgetMode, setBudgetMode] = useState(false);
+  const [budget, setBudget] = useState(500); // default rupees
 
-  React.useEffect(() => {
+  // derived list after applying the active filter tabs
+  const displayProducts = useMemo(() => {
+    if (!products) return [];
+    const list = [...products];
+    switch (activeFilter) {
+      case 1: // Newest
+        return list.sort((a, b) => {
+          // createdAt may be ISO string
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+      case 2: // High Budget -> sort by price descending
+        return list.sort((a, b) => b.price - a.price);
+      case 3: // Zero Quotes -> no quotes field, fall back to empty set or affiliate only
+        return list.filter(
+          p =>
+            p.id.startsWith('amz_') ||
+            p.id.startsWith('fk_') ||
+            p.id.startsWith('af_'),
+        );
+      default:
+        return list;
+    }
+  }, [products, activeFilter]);
+
+  useEffect(() => {
     // load personalized feed if available
     productService
       .getPersonalizedFeed()
@@ -82,7 +78,30 @@ export const HomeScreen = () => {
       .catch(() => {
         // ignore if not authenticated or error
       });
-  }, []);
+
+    // fetch general product feed
+    const params: any = {};
+    if (budgetMode) params.maxPrice = budget;
+    productService
+      .getProducts(params)
+      .then(r => {
+        setProducts(r.data);
+        if ('aiPickId' in r) setAiPickId((r as any).aiPickId);
+      })
+      .catch(() => {});
+
+    // also grab some affiliate products with an empty search (category filter optional)
+    textSearch('', { limit: 20 })
+      .then(r => {
+        // merge, avoiding duplicates by id
+        setProducts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const extras = r.data.filter(p => !existingIds.has(p.id));
+          return [...prev, ...extras];
+        });
+      })
+      .catch(() => {});
+  }, [budgetMode, budget]);
 
   return (
     <View style={styles.container}>
@@ -98,7 +117,15 @@ export const HomeScreen = () => {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Search & Filter */}
-        <FilterSearchBar placeholder="Search Buyer Requests..." />
+        <FilterSearchBar
+          placeholder="Search products..."
+          onFilterPress={() => setBudgetMode(m => !m)}
+        />
+        {budgetMode && (
+          <View style={styles.budgetBanner}>
+            <Text style={styles.budgetText}>Budget mode: ₹{budget}</Text>
+          </View>
+        )}
 
         {/* Personalized Recommendations */}
         {personalized.length > 0 && (
@@ -137,22 +164,22 @@ export const HomeScreen = () => {
           </View>
         )}
 
-        {/* Promotional / Active Banner */}
+        {/* Promotional / Great Deals Banner */}
         <View style={styles.bannerContainer}>
           <View style={styles.bannerContent}>
             <CustomText variant="lg" weight="bold" color={Colors.textPrimary}>
-              Active Bids
+              Great Deals
             </CustomText>
             <CustomText
               variant="sm"
               color={Colors.textSecondary}
               style={styles.bannerSub}
             >
-              3 of your quotes are currently winning!
+              Top offers from across the platform and affiliate partners
             </CustomText>
             <View style={styles.bannerButton}>
               <CustomText variant="xs" weight="bold" color={Colors.white}>
-                View Bids →
+                View Deals →
               </CustomText>
             </View>
           </View>
@@ -160,7 +187,12 @@ export const HomeScreen = () => {
         </View>
 
         {/* Categories */}
-        <CategoryList categories={MOCK_CATEGORIES} />
+        <CategoryList
+          categories={MOCK_CATEGORIES}
+          onPress={cat =>
+            navigation.navigate('Results', { category: cat.name.toLowerCase() })
+          }
+        />
 
         {/* Urgent Buyer Requests */}
         {/* <View style={styles.sectionHeader}>
@@ -220,16 +252,17 @@ export const HomeScreen = () => {
           ))}
         </ScrollView>
 
-        {/* Recommended Grid */}
+        {/* Product Grid */}
         <View style={styles.gridContainer}>
-          {MOCK_REQUESTS.map(request => (
-            <View key={`grid-${request.id}`} style={styles.gridItem}>
-              <BuyerRequestCard
-                title={request.title}
-                budget={request.budget}
-                quotesReceived={request.quotesReceived}
-                timeRemaining={request.timeRemaining}
-                imageUrl={request.imageUrl}
+          {displayProducts.map(p => (
+            <View key={p.id} style={styles.gridItem}>
+              <ProductCard
+                product={p}
+                onPress={() =>
+                  navigation.navigate('ProductDetail', { productId: p.id })
+                }
+                isInWishlist={false}
+                isAiPick={p.id === aiPickId}
               />
             </View>
           ))}
@@ -292,6 +325,16 @@ const styles = StyleSheet.create({
   cardsRow: {
     paddingLeft: Spacing.base,
     paddingRight: Spacing.sm,
+  },
+  budgetBanner: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    backgroundColor: Colors.accentLight,
+    alignItems: 'center',
+  },
+  budgetText: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
   filterTabs: {
     paddingHorizontal: Spacing.base,

@@ -331,7 +331,11 @@ export const ProductDetailScreen = () => {
                     title="Add"
                     onPress={() => {
                       const val = parseFloat(desiredPrice);
-                      addToWishlist(product, isNaN(val) ? undefined : val);
+                      if (!isNaN(val) && val >= 0) {
+                        addToWishlist(product, val);
+                      } else {
+                        addToWishlist(product);
+                      }
                       setShowPricePrompt(false);
                       setDesiredPrice('');
                     }}

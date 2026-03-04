@@ -96,7 +96,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <View style={styles.topBadges}>
             {product.isSponsored && <Badge variant="sponsored" label="Ad" />}
             {product.isTrending && <Badge variant="trending" label="🔥 Hot" />}
-            {props.isAiPick && <Badge variant="primary" label="🏆 AI Pick" />}
+            {isAiPick && <Badge variant="sponsored" label="🏆 AI Pick" />}
           </View>
 
           {/* Wishlist */}
@@ -170,7 +170,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 style={[styles.addBtn, styles.buyBtn]}
                 onPress={onPress}
               >
-                <Text style={styles.addBtnText}>View Deal</Text>
+                <Text style={styles.addBtnText}>Add to Cart</Text>
               </TouchableOpacity>
             </>
           )}

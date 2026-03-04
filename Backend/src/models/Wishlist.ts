@@ -16,8 +16,8 @@ const wishlistSchema = new Schema<IWishlist>(
       required: true,
     },
     productId: {
-      type: Schema.Types.ObjectId,
-      ref: "Product",
+      // can be ObjectId for internal products or string for affiliate/external IDs
+      type: Schema.Types.String,
       required: true,
     },
     targetPrice: {

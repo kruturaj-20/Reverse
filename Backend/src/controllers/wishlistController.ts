@@ -9,7 +9,11 @@ import { AuthRequest } from "../middleware/authenticate";
 export const getWishlist = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const wishlist = await Wishlist.find({ userId: req.user!.id })
-      .populate("productId")
+      // populate only when the stored id is a normal ObjectId
+      .populate({
+        path: "productId",
+        match: { _id: { $type: "objectId" } },
+      })
       .sort({ createdAt: -1 });
 
     // smart grouping: categorize by product category
@@ -28,8 +32,21 @@ export const addToWishlist = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { productId, targetPrice } = req.body;
 
-    const product = await Product.findById(productId);
-    if (!product) throw new AppError("Product not found", 404);
+    // validate targetPrice if provided
+    if (
+      targetPrice !== undefined &&
+      (typeof targetPrice !== "number" || isNaN(targetPrice) || targetPrice < 0)
+    ) {
+      throw new AppError("Invalid target price", 400);
+    }
+
+    // if the id looks like a Mongo ObjectId, try to load the product
+    let product = null;
+    if (productId && productId.match(/^[0-9a-fA-F]{24}$/)) {
+      product = await Product.findById(productId);
+      if (!product) throw new AppError("Product not found", 404);
+    }
+    // non-ObjectId identifiers (affiliate/external products) are allowed but we don't validate them
 
     const existing = await Wishlist.findOne({
       userId: req.user!.id,

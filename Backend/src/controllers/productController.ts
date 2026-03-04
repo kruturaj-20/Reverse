@@ -2,12 +2,14 @@ import { Request, Response } from "express";
 import Product from "../models/Product";
 import PriceHistory from "../models/PriceHistory";
 import Wishlist from "../models/Wishlist";
+import SearchLog from "../models/SearchLog";
 import { asyncHandler } from "../utils/asyncHandler";
 import { sendSuccess, buildPaginationMeta } from "../utils/apiResponse";
 import { AppError } from "../utils/AppError";
 import { cache, hashQuery, CacheTTL } from "../utils/cache";
 import logger from "../utils/logger";
 import { sendPriceDropNotification } from "../utils/notification";
+import { searchAffiliateProducts } from "../services/affiliateService";
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
@@ -320,8 +322,8 @@ export const getPersonalizedFeed = asyncHandler(
     // if we have multiple logs, we could pick most frequent term
     if (recent.length > 1) {
       const tokenCounts: Record<string, number> = {};
-      recent.forEach((l) => {
-        l.query.split(/\s+/).forEach((tok) => {
+      recent.forEach((l: any) => {
+        l.query.split(/\s+/).forEach((tok: string) => {
           const t = tok.toLowerCase().replace(/[^a-z0-9]/g, "");
           if (t.length > 2) tokenCounts[t] = (tokenCounts[t] || 0) + 1;
         });

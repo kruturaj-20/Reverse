@@ -31,8 +31,16 @@ export const wishlistService = {
     productId: string,
     targetPrice?: number,
   ): Promise<ApiResponse<WishlistResponse>> {
-    const payload: any = { productId };
-    if (targetPrice !== undefined) payload.targetPrice = targetPrice;
+    const payload: any = { productId: String(productId) };
+    // only include valid non-negative numbers
+    if (
+      typeof targetPrice === 'number' &&
+      !isNaN(targetPrice) &&
+      targetPrice >= 0
+    ) {
+      payload.targetPrice = targetPrice;
+    }
+    console.debug('[wishlistService] payload', payload);
     const response = await apiClient.post<ApiResponse<WishlistResponse>>(
       '/wishlist',
       payload,

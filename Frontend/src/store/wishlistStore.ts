@@ -25,10 +25,13 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
 
     try {
       await wishlistService.addToWishlist(product.id, targetPrice);
-    } catch (e) {
+    } catch (e: any) {
       // Revert on failure
       set({ items: currentItems });
       console.error('Failed to add to wishlist', e);
+      if (e.response && e.response.data) {
+        console.error('server error:', e.response.data);
+      }
     }
   },
 
