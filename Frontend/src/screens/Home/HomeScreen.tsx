@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-} from 'react-native';
+import { ApiSuccessResponse } from '../../types/api';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Colors, Spacing, BorderRadius, Typography } from '../../theme';
 import { HomeHeader } from '../../components/common/HomeHeader';
@@ -50,18 +44,13 @@ export const HomeScreen = () => {
       case 1: // Newest
         return list.sort((a, b) => {
           // createdAt may be ISO string
-          return (
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
       case 2: // High Budget -> sort by price descending
         return list.sort((a, b) => b.price - a.price);
       case 3: // Zero Quotes -> no quotes field, fall back to empty set or affiliate only
         return list.filter(
-          p =>
-            p.id.startsWith('amz_') ||
-            p.id.startsWith('fk_') ||
-            p.id.startsWith('af_'),
+          (p) => p.id.startsWith('amz_') || p.id.startsWith('fk_') || p.id.startsWith('af_'),
         );
       default:
         return list;
@@ -72,7 +61,7 @@ export const HomeScreen = () => {
     // load personalized feed if available
     productService
       .getPersonalizedFeed()
-      .then(r => {
+      .then((r) => {
         setPersonalized(r.data);
       })
       .catch(() => {
@@ -84,19 +73,19 @@ export const HomeScreen = () => {
     if (budgetMode) params.maxPrice = budget;
     productService
       .getProducts(params)
-      .then(r => {
+      .then((r) => {
         setProducts(r.data);
-        if ('aiPickId' in r) setAiPickId((r as any).aiPickId);
+        if ('aiPickId' in r) setAiPickId((r as unknown as ApiSuccessResponse<any>).aiPickId);
       })
       .catch(() => {});
 
     // also grab some affiliate products with an empty search (category filter optional)
     textSearch('', { limit: 20 })
-      .then(r => {
+      .then((r) => {
         // merge, avoiding duplicates by id
-        setProducts(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const extras = r.data.filter(p => !existingIds.has(p.id));
+        setProducts((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const extras = r.data.filter((p) => !existingIds.has(p.id));
           return [...prev, ...extras];
         });
       })
@@ -112,14 +101,11 @@ export const HomeScreen = () => {
         onNotificationPress={() => console.log('Notifications')}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Search & Filter */}
         <FilterSearchBar
           placeholder="Search products..."
-          onFilterPress={() => setBudgetMode(m => !m)}
+          onFilterPress={() => setBudgetMode((m) => !m)}
         />
         {budgetMode && (
           <View style={styles.budgetBanner}>
@@ -147,16 +133,11 @@ export const HomeScreen = () => {
                 paddingTop: Spacing.sm,
               }}
             >
-              {personalized.map(p => (
-                <View
-                  key={p.id}
-                  style={{ width: 160, marginRight: Spacing.sm }}
-                >
+              {personalized.map((p) => (
+                <View key={p.id} style={{ width: 160, marginRight: Spacing.sm }}>
                   <ProductCard
                     product={p}
-                    onPress={() =>
-                      navigation.navigate('ProductDetail', { productId: p.id })
-                    }
+                    onPress={() => navigation.navigate('ProductDetail', { productId: p.id })}
                   />
                 </View>
               ))}
@@ -170,11 +151,7 @@ export const HomeScreen = () => {
             <CustomText variant="lg" weight="bold" color={Colors.textPrimary}>
               Great Deals
             </CustomText>
-            <CustomText
-              variant="sm"
-              color={Colors.textSecondary}
-              style={styles.bannerSub}
-            >
+            <CustomText variant="sm" color={Colors.textSecondary} style={styles.bannerSub}>
               Top offers from across the platform and affiliate partners
             </CustomText>
             <View style={styles.bannerButton}>
@@ -189,9 +166,7 @@ export const HomeScreen = () => {
         {/* Categories */}
         <CategoryList
           categories={MOCK_CATEGORIES}
-          onPress={cat =>
-            navigation.navigate('Results', { category: cat.name.toLowerCase() })
-          }
+          onPress={(cat) => navigation.navigate('Results', { category: cat.name.toLowerCase() })}
         />
 
         {/* Urgent Buyer Requests */}
@@ -234,17 +209,12 @@ export const HomeScreen = () => {
             <TouchableOpacity
               key={tab}
               onPress={() => setActiveFilter(idx)}
-              style={[
-                styles.filterTab,
-                activeFilter === idx && styles.filterTabActive,
-              ]}
+              style={[styles.filterTab, activeFilter === idx && styles.filterTabActive]}
             >
               <CustomText
                 variant="sm"
                 weight={activeFilter === idx ? '700' : '500'}
-                color={
-                  activeFilter === idx ? Colors.white : Colors.textSecondary
-                }
+                color={activeFilter === idx ? Colors.white : Colors.textSecondary}
               >
                 {tab}
               </CustomText>
@@ -254,13 +224,11 @@ export const HomeScreen = () => {
 
         {/* Product Grid */}
         <View style={styles.gridContainer}>
-          {displayProducts.map(p => (
+          {displayProducts.map((p) => (
             <View key={p.id} style={styles.gridItem}>
               <ProductCard
                 product={p}
-                onPress={() =>
-                  navigation.navigate('ProductDetail', { productId: p.id })
-                }
+                onPress={() => navigation.navigate('ProductDetail', { productId: p.id })}
                 isInWishlist={false}
                 isAiPick={p.id === aiPickId}
               />

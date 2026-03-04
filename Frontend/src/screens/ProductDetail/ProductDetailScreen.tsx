@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ApiSuccessResponse } from '../../types/api';
 import {
   View,
   Text,
@@ -19,13 +20,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import LinearGradient from 'react-native-linear-gradient';
 import { RootStackParamList } from '../../navigation/types';
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BorderRadius,
-  Shadows,
-} from '../../theme';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../theme';
 import { Product } from '../../data/mockProducts';
 import { productService } from '../../services/products';
 import { PriceHistoryBar } from '../../components/product/PriceHistoryBar';
@@ -49,15 +44,12 @@ export const ProductDetailScreen = () => {
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
   // price intelligence states
-  const [priceHistory, setPriceHistory] = useState<
-    Array<{ price: number; recordedAt: string }>
-  >([]);
-  const [buyAdvice, setBuyAdvice] = useState<
-    'buy_now' | 'wait' | 'expensive' | null
-  >(null);
+  const [priceHistory, setPriceHistory] = useState<Array<{ price: number; recordedAt: string }>>(
+    [],
+  );
+  const [buyAdvice, setBuyAdvice] = useState<'buy_now' | 'wait' | 'expensive' | null>(null);
 
-  const { isInWishlist, addToWishlist, removeFromWishlist } =
-    useWishlistStore();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlistStore();
   const { addToCart } = useCartStore();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [showPricePrompt, setShowPricePrompt] = useState(false);
@@ -73,7 +65,7 @@ export const ProductDetailScreen = () => {
       if (passedProduct.category) {
         productService
           .getProducts({ category: passedProduct.category, limit: 6 })
-          .then(r => setRelated(r.data.filter(p => p.id !== passedProduct.id)))
+          .then((r) => setRelated(r.data.filter((p) => p.id !== passedProduct.id)))
           .catch(() => {}); // non-critical
       }
       // we won't fetch history/advice for affiliate stub
@@ -95,11 +87,11 @@ export const ProductDetailScreen = () => {
           category: loadedProduct.category,
           limit: 6,
         });
-        const aiId = (relatedRes as any).aiPickId;
+        const aiId = (relatedRes as unknown as ApiSuccessResponse<any>).aiPickId;
         const mapped = relatedRes.data
-          .filter(p => p.id !== loadedProduct.id)
+          .filter((p) => p.id !== loadedProduct.id)
           .map(
-            p =>
+            (p) =>
               ({
                 ...p,
                 isAiPick: aiId === p.id,
@@ -109,9 +101,7 @@ export const ProductDetailScreen = () => {
 
         // bundle suggestions
         try {
-          const bundleRes = await productService.getBundleSuggestions(
-            loadedProduct.id,
-          );
+          const bundleRes = await productService.getBundleSuggestions(loadedProduct.id);
           setBundles(bundleRes.data);
         } catch (e) {
           // ignore
@@ -127,11 +117,11 @@ export const ProductDetailScreen = () => {
       ) {
         productService
           .getPriceHistory(loadedProduct.id)
-          .then(h => setPriceHistory(h.data))
+          .then((h) => setPriceHistory(h.data))
           .catch(() => {});
         productService
           .getBuyAdvice(loadedProduct.id)
-          .then(a => setBuyAdvice(a.data.advice))
+          .then((a) => setBuyAdvice(a.data.advice))
           .catch(() => {});
       }
     } catch (error) {
@@ -143,12 +133,7 @@ export const ProductDetailScreen = () => {
 
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: 'center', alignItems: 'center' },
-        ]}
-      >
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
         <Text
           style={{
@@ -165,12 +150,7 @@ export const ProductDetailScreen = () => {
 
   if (!product) {
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: 'center', alignItems: 'center' },
-        ]}
-      >
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ fontSize: 48, marginBottom: Spacing.sm }}>🔍</Text>
         <Text
           style={{
@@ -189,30 +169,21 @@ export const ProductDetailScreen = () => {
   }
 
   const inWishlist = isInWishlist(product.id);
-  const sortedStorePrices = [...(product.storePrices || [])].sort(
-    (a, b) => a.price - b.price,
-  );
+  const sortedStorePrices = [...(product.storePrices || [])].sort((a, b) => a.price - b.price);
 
   const isAffiliateProduct =
-    product.id.startsWith('amz_') ||
-    product.id.startsWith('fk_') ||
-    product.id.startsWith('af_');
+    product.id.startsWith('amz_') || product.id.startsWith('fk_') || product.id.startsWith('af_');
   const bestStorePrice = sortedStorePrices[0];
 
   const handleAddToCart = async () => {
     setAddingToCart(true);
     try {
       await addToCart(product, 1);
-      Alert.alert(
-        'Added to Cart',
-        'Saved! You can complete checkout via any store below.',
-        [{ text: 'Okay', style: 'default' }],
-      );
+      Alert.alert('Added to Cart', 'Saved! You can complete checkout via any store below.', [
+        { text: 'Okay', style: 'default' },
+      ]);
     } catch (e: any) {
-      Alert.alert(
-        'Cannot Add to Cart',
-        e?.message || 'Could not add to cart. Try again.',
-      );
+      Alert.alert('Cannot Add to Cart', e?.message || 'Could not add to cart. Try again.');
     } finally {
       setAddingToCart(false);
     }
@@ -227,14 +198,10 @@ export const ProductDetailScreen = () => {
 
   const handleBuyBestPrice = () => {
     if (!bestStorePrice?.affiliateUrl) {
-      Alert.alert(
-        'Unavailable',
-        'No purchase link available for this product.',
-      );
+      Alert.alert('Unavailable', 'No purchase link available for this product.');
       return;
     }
-    const storeName =
-      bestStorePrice.storeName || bestStorePrice.storeId || 'Store';
+    const storeName = bestStorePrice.storeName || bestStorePrice.storeId || 'Store';
     navigation.navigate('InAppBrowser', {
       url: bestStorePrice.affiliateUrl,
       title: storeName,
@@ -244,17 +211,11 @@ export const ProductDetailScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[0]}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[0]}>
         {/* Sticky Header */}
         <SafeAreaView style={styles.stickyHeader}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.circleBtn}
-            >
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circleBtn}>
               <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -283,16 +244,8 @@ export const ProductDetailScreen = () => {
           {product.images.length > 1 && (
             <View style={styles.imageDots}>
               {product.images.map((_, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => setSelectedImageIdx(i)}
-                >
-                  <View
-                    style={[
-                      styles.dot,
-                      i === selectedImageIdx && styles.dotActive,
-                    ]}
-                  />
+                <TouchableOpacity key={i} onPress={() => setSelectedImageIdx(i)}>
+                  <View style={[styles.dot, i === selectedImageIdx && styles.dotActive]} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -323,10 +276,7 @@ export const ProductDetailScreen = () => {
                   onChangeText={setDesiredPrice}
                 />
                 <View style={styles.modalButtons}>
-                  <Button
-                    title="Cancel"
-                    onPress={() => setShowPricePrompt(false)}
-                  />
+                  <Button title="Cancel" onPress={() => setShowPricePrompt(false)} />
                   <Button
                     title="Add"
                     onPress={() => {
@@ -351,9 +301,7 @@ export const ProductDetailScreen = () => {
           {/* Rating */}
           <View style={styles.ratingRow}>
             <Text style={styles.starText}>⭐ {product.rating}</Text>
-            <Text style={styles.reviewText}>
-              ({product.reviews || []} reviews)
-            </Text>
+            <Text style={styles.reviewText}>({product.reviews || []} reviews)</Text>
             {product.isSponsored && (
               <View style={styles.adBadge}>
                 <Text style={styles.adText}>Sponsored</Text>
@@ -364,9 +312,7 @@ export const ProductDetailScreen = () => {
           {/* Price */}
           <View style={styles.priceRow}>
             <Text style={styles.price}>₹{product.price.toLocaleString()}</Text>
-            <Text style={styles.originalPrice}>
-              ₹{product.originalPrice.toLocaleString()}
-            </Text>
+            <Text style={styles.originalPrice}>₹{product.originalPrice.toLocaleString()}</Text>
             <Text style={styles.savings}>
               Save ₹{(product.originalPrice - product.price).toLocaleString()}
             </Text>
@@ -374,10 +320,7 @@ export const ProductDetailScreen = () => {
           {/* price history sparkline + advice badge */}
           {priceHistory.length > 0 && (
             <View style={{ marginTop: Spacing.sm }}>
-              <PriceHistoryBar
-                history={priceHistory}
-                currentPrice={product.price}
-              />
+              <PriceHistoryBar history={priceHistory} currentPrice={product.price} />
             </View>
           )}
           {buyAdvice && (
@@ -419,40 +362,24 @@ export const ProductDetailScreen = () => {
             {sortedStorePrices.map((sp, i) => {
               const store = getStoreById(sp.storeId);
               return (
-                <View
-                  key={sp.storeId}
-                  style={[styles.storeRow, i === 0 && styles.bestDealRow]}
-                >
+                <View key={sp.storeId} style={[styles.storeRow, i === 0 && styles.bestDealRow]}>
                   <View style={styles.storeInfo}>
                     <Text style={styles.storeEmoji}>{store?.logo ?? '🛒'}</Text>
                     <View>
-                      <Text style={styles.storeName}>
-                        {store?.name ?? sp.storeId}
-                      </Text>
-                      {i === 0 && (
-                        <Text style={styles.bestDealLabel}>Best Price</Text>
-                      )}
+                      <Text style={styles.storeName}>{store?.name ?? sp.storeId}</Text>
+                      {i === 0 && <Text style={styles.bestDealLabel}>Best Price</Text>}
                     </View>
                   </View>
                   <View style={styles.storePriceCol}>
-                    <Text
-                      style={[
-                        styles.storePrice,
-                        i === 0 && { color: Colors.success },
-                      ]}
-                    >
+                    <Text style={[styles.storePrice, i === 0 && { color: Colors.success }]}>
                       ₹{sp.price.toLocaleString()}
                     </Text>
                     {sp.deliveryDays && (
-                      <Text style={styles.delivery}>
-                        {sp.deliveryDays}d delivery
-                      </Text>
+                      <Text style={styles.delivery}>{sp.deliveryDays}d delivery</Text>
                     )}
                   </View>
                   <TouchableOpacity
-                    onPress={() =>
-                      handleBuyNow(sp.affiliateUrl, store?.name ?? '')
-                    }
+                    onPress={() => handleBuyNow(sp.affiliateUrl, store?.name ?? '')}
                     style={[styles.dealBtn, !sp.inStock && styles.dealBtnOOS]}
                     disabled={!sp.inStock || addingToCart}
                   >
@@ -468,21 +395,17 @@ export const ProductDetailScreen = () => {
           {/* Bundle Suggestions (Complete the Look) */}
           {bundles.length > 0 && (
             <View style={styles.relatedSection}>
-              <Text style={styles.tableTitle}>
-                👗 People also buy with this
-              </Text>
+              <Text style={styles.tableTitle}>👗 People also buy with this</Text>
               <FlatList
                 data={bundles}
-                keyExtractor={p => p.id}
+                keyExtractor={(p) => p.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 renderItem={({ item }) => (
                   <View style={{ width: 160, marginRight: Spacing.sm }}>
                     <ProductCard
                       product={item}
-                      onPress={() =>
-                        navigation.push('ProductDetail', { productId: item.id })
-                      }
+                      onPress={() => navigation.push('ProductDetail', { productId: item.id })}
                       isAiPick={item.isAiPick}
                     />
                   </View>
@@ -497,7 +420,7 @@ export const ProductDetailScreen = () => {
               <Text style={styles.tableTitle}>🔗 You may also like</Text>
               <FlatList
                 data={related}
-                keyExtractor={p => p.id}
+                keyExtractor={(p) => p.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 renderItem={({ item }) => (
@@ -533,10 +456,8 @@ export const ProductDetailScreen = () => {
               </Text>
               <Text style={styles.bottomPrice}>
                 ₹
-                {(isAffiliateProduct
-                  ? bestStorePrice?.price
-                  : product.price
-                )?.toLocaleString() ?? '—'}
+                {(isAffiliateProduct ? bestStorePrice?.price : product.price)?.toLocaleString() ??
+                  '—'}
               </Text>
             </View>
             {isAffiliateProduct ? (

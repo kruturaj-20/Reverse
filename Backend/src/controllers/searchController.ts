@@ -1,11 +1,13 @@
-import { Request, Response } from "express";
-import { asyncHandler } from "../utils/asyncHandler";
-import { sendSuccess } from "../utils/apiResponse";
-import { parseSearchIntent } from "../services/geminiService";
-import { searchAffiliateProducts } from "../services/affiliateService";
-import { processImageSearch } from "../services/imageSearchService";
-import SearchLog from "../models/SearchLog";
-import logger from "../utils/logger";
+import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/authenticate';
+import { asyncHandler } from '../utils/asyncHandler';
+import { sendSuccess, sendError } from '../utils/apiResponse';
+import { parseSearchIntent } from '../services/geminiService';
+import { searchAffiliateProducts } from '../services/affiliateService';
+import { processImageSearch } from '../services/imageSearchService';
+import SearchLog from '../models/SearchLog';
+import logger from '../utils/logger';
+import { cache, hashQuery, CacheTTL } from '../utils/cache';
 
 /**
  * GET /api/v1/search?q=...&page=1&limit=20&category=...&brand=...&maxPrice=...
@@ -16,72 +18,80 @@ import logger from "../utils/logger";
  * 3. Response includes `aiMeta` with the extracted intent so the frontend can show
  *    "AI understood: running shoes under ₹3000 in footwear"
  */
-export const searchProducts = asyncHandler(
-  async (req: Request, res: Response) => {
-    const query = (req.query.q as string | undefined) || "";
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+export const searchProducts = asyncHandler(async (req: Request, res: Response) => {
+  const query = (req.query.q as string | undefined) || '';
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
 
-    // Allow manual overrides from query params
-    const manualCategory = req.query.category as string | undefined;
-    const manualBrand = req.query.brand as string | undefined;
-    const manualMaxPrice = req.query.maxPrice
-      ? parseInt(req.query.maxPrice as string)
-      : undefined;
-    const manualMinPrice = req.query.minPrice
-      ? parseInt(req.query.minPrice as string)
-      : undefined;
+  // Allow manual overrides from query params
+  const manualCategory = req.query.category as string | undefined;
+  const manualBrand = req.query.brand as string | undefined;
+  const manualMaxPrice = req.query.maxPrice ? parseInt(req.query.maxPrice as string) : undefined;
+  const manualMinPrice = req.query.minPrice ? parseInt(req.query.minPrice as string) : undefined;
 
-    logger.info(`AI Search: query="${query}"`);
-    // persist search log for personalization
-    try {
-      if (query && (req as any).user?.id) {
-        await SearchLog.create({ userId: (req as any).user.id, query });
-      }
-    } catch (e) {
-      logger.warn("Failed to save search log", e);
+  logger.info(`AI Search: query="${query}"`);
+  // persist search log for personalization
+  try {
+    const authReq = req as AuthRequest;
+    if (query && authReq.user?.id) {
+      await SearchLog.create({ userId: authReq.user.id, query });
     }
+  } catch (e) {
+    logger.warn('Failed to save search log', e);
+  }
 
-    // Step 1: Parse intent with Gemini
-    const intent = query
-      ? await parseSearchIntent(query)
-      : {
-          keywords: [],
-          rawQuery: "",
-          category: manualCategory,
-          brand: manualBrand,
-        };
+  // Step 1: Parse intent with Gemini
+  const intent = query
+    ? await parseSearchIntent(query)
+    : {
+        keywords: [],
+        rawQuery: '',
+        category: manualCategory,
+        brand: manualBrand,
+      };
 
-    // Manual overrides take priority over AI-extracted values
-    if (manualCategory) intent.category = manualCategory;
-    if (manualBrand) intent.brand = manualBrand;
-    if (manualMaxPrice) intent.maxPrice = manualMaxPrice;
-    if (manualMinPrice) intent.minPrice = manualMinPrice;
+  // Manual overrides take priority over AI-extracted values
+  if (manualCategory) intent.category = manualCategory;
+  if (manualBrand) intent.brand = manualBrand;
+  if (manualMaxPrice) intent.maxPrice = manualMaxPrice;
+  if (manualMinPrice) intent.minPrice = manualMinPrice;
 
-    // Step 2: Fetch products
-    const allProducts = await searchAffiliateProducts(intent, limit * page);
+  // Step 2: Fetch products
+  // caching by intent + page+limit
+  const cacheKey = `search:${hashQuery({ intent, page, limit })}`;
+  const cached = await cache.get(cacheKey);
+  if (cached) {
+    res.status(200).json(JSON.parse(cached));
+    return;
+  }
 
-    // Pagination (applied in-memory since affiliate APIs may not support it)
-    const start = (page - 1) * limit;
-    const products = allProducts.slice(start, start + limit);
-    const total = allProducts.length;
+  const allProducts = await searchAffiliateProducts(intent, limit * page);
 
-    sendSuccess(
-      res,
-      products,
-      query ? `AI search results for: "${query}"` : "Products fetched",
-      200,
-      {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: start + limit < total,
-        hasPrevPage: page > 1,
-      },
-    );
-  },
-);
+  // Pagination (applied in-memory since affiliate APIs may not support it)
+  const start = (page - 1) * limit;
+  const products = allProducts.slice(start, start + limit);
+  const total = allProducts.length;
+
+  const pagination = {
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    hasNextPage: start + limit < total,
+    hasPrevPage: page > 1,
+  };
+
+  const responseBody = {
+    success: true,
+    data: products,
+    message: query ? `AI search results for: "${query}"` : 'Products fetched',
+    pagination,
+  };
+
+  await cache.set(cacheKey, JSON.stringify(responseBody), CacheTTL.SEARCH_RESULTS);
+
+  sendSuccess(res, products, responseBody.message, 200, pagination);
+});
 
 /**
  * POST /api/v1/search/image
@@ -96,30 +106,18 @@ export const imageSearch = asyncHandler(async (req: Request, res: Response) => {
   const file = req.file;
 
   if (!file) {
-    res
-      .status(400)
-      .json({
-        success: false,
-        error: "Please upload an image file (field name: image)",
-      });
+    sendError(res, 'Please upload an image file (field name: image)', 400);
     return;
   }
 
-  if (!file.mimetype.startsWith("image/")) {
-    res
-      .status(400)
-      .json({ success: false, error: "Only image files are accepted" });
+  if (!file.mimetype.startsWith('image/')) {
+    sendError(res, 'Only image files are accepted', 400);
     return;
   }
 
-  logger.info(
-    `Image Search: received ${file.originalname} (${file.size} bytes, ${file.mimetype})`,
-  );
+  logger.info(`Image Search: received ${file.originalname} (${file.size} bytes, ${file.mimetype})`);
 
-  const { products, detectedQuery } = await processImageSearch(
-    file.buffer,
-    file.mimetype,
-  );
+  const { products, detectedQuery } = await processImageSearch(file.buffer, file.mimetype);
 
   sendSuccess(res, products, `Found ${products.length} similar products`, 200, {
     total: products.length,
