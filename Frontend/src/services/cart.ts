@@ -1,12 +1,11 @@
 import { apiClient } from './apiClient';
 import { ApiResponse } from './types';
-import { Product } from '../data/mockProducts';
 
 export interface CartItem {
     productId: string;
     quantity: number;
     price: number;
-    product?: Product; // Populated from backend
+    product?: Record<string, any>; // Populated from backend — shape varies by context
 }
 
 export interface CartResponse {

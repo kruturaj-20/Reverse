@@ -67,10 +67,16 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // ─── HTTP Logging ─────────────────────────────────────────────────────────────
-// Only log requests in development — avoids leaking request details in production
-if (config.nodeEnv === 'development') {
-    app.use(morgan('dev'));
-}
+// Use 'combined' (Apache format) in production, piped to Winston for persistent log files.
+// Use 'dev' (colourised short format) in development.
+const morganFormat = config.nodeEnv === 'production' ? 'combined' : 'dev';
+app.use(
+    morgan(morganFormat, {
+        stream: { write: (message: string) => logger.http(message.trim()) },
+        // Skip health-check pings from polluting logs
+        skip: (_req: Request) => _req.url === '/health',
+    })
+);
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 
@@ -109,9 +115,14 @@ app.use('/api/v1/auth/refresh', authLimiter);
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
-// Health check — outside the rate limiter, used by orchestrators
+// Health check — outside the rate limiter, used by orchestrators.
+// Do NOT expose environment in production (reduces server fingerprinting surface).
 app.get('/health', (_req: Request, res: Response) => {
-    res.status(200).json({ status: 'OK', environment: config.nodeEnv });
+    const body: Record<string, string> = { status: 'OK' };
+    if (config.nodeEnv !== 'production') {
+        body.environment = config.nodeEnv;
+    }
+    res.status(200).json(body);
 });
 
 app.use('/api/v1', routes);

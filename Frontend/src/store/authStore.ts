@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, authService } from '../services/auth';
+import EncryptedStorage from 'react-native-encrypted-storage';
+import { User, authService, LoginPayload, SignupPayload } from '../services/auth';
 
 interface AuthState {
     user: User | null;
@@ -10,36 +11,40 @@ interface AuthState {
     error: string | null;
 
     // Actions
-    login: (data: any) => Promise<void>;
-    signup: (data: any) => Promise<void>;
+    login: (data: LoginPayload) => Promise<void>;
+    signup: (data: SignupPayload) => Promise<void>;
     logout: () => Promise<void>;
     restoreToken: () => Promise<void>;
     setTokens: (accessToken: string, refreshToken: string) => void;
     refreshToken: () => string | null;
 }
 
+// Access token (15 min lifetime) — AsyncStorage is fine for short-lived tokens.
 const ACCESS_TOKEN_KEY = '@reverseshop_access_token';
-const REFRESH_TOKEN_KEY = '@reverseshop_refresh_token';
+// Refresh token (30 day lifetime) — MUST be stored encrypted.
+const REFRESH_TOKEN_KEY = 'reverseshop_refresh_token';
 
-let memoryRefreshToken: string | null = null; // Don't expose this in state directly if possible
+let memoryRefreshToken: string | null = null;
 
 export const useAuthStore = create<AuthState>((set, get) => ({
     user: null,
     accessToken: null,
-    isLoading: true, // Start loading as we check for stored tokens
+    isLoading: true,
     isSignout: false,
     error: null,
 
     setTokens: (accessToken, refreshToken) => {
         set({ accessToken });
         memoryRefreshToken = refreshToken;
+        // Access token in AsyncStorage (short-lived — 15 min)
         AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken).catch(console.error);
-        AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken).catch(console.error);
+        // Refresh token in EncryptedStorage (long-lived — 30 days; hardware-backed on Android)
+        EncryptedStorage.setItem(REFRESH_TOKEN_KEY, refreshToken).catch(console.error);
     },
 
     refreshToken: () => memoryRefreshToken,
 
-    login: async (data: any) => {
+    login: async (data: LoginPayload) => {
         try {
             set({ isLoading: true, error: null });
             const response = await authService.login(data);
@@ -56,7 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    signup: async (data: any) => {
+    signup: async (data: SignupPayload) => {
         try {
             set({ isLoading: true, error: null });
             const response = await authService.signup(data);
@@ -78,7 +83,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Clear state immediately to prevent re-entry from interceptors
         set({ user: null, accessToken: null, isSignout: true });
         memoryRefreshToken = null;
-        await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+        // Clear both storages
+        await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
+        await EncryptedStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => { });
         // Only call the API if we actually had a token — avoids 401 when
         // logout is triggered by the response interceptor (token already gone)
         if (currentToken) {
@@ -89,7 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     restoreToken: async () => {
         try {
             const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
-            const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+            const refreshToken = await EncryptedStorage.getItem(REFRESH_TOKEN_KEY);
 
             if (accessToken && refreshToken) {
                 memoryRefreshToken = refreshToken;
@@ -104,8 +111,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     await get().logout();
                 }
             }
-        } catch (e) {
-            // Token restoring failed, proceed with signed out state
+        } catch (_e) {
+            // Token restoring failed — proceed with signed out state
         } finally {
             set({ isLoading: false });
         }

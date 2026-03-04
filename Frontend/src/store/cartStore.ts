@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { cartService, CartItem } from '../services/cart';
-import { Product } from '../data/mockProducts';
+
+// Minimal product shape needed to add to cart.
+// Accepts both the API Product type and the mock Product type.
+interface CartProduct {
+    id: string;
+    price: number;
+}
 
 interface CartState {
     items: CartItem[];
@@ -8,7 +14,7 @@ interface CartState {
     loading: boolean;
 
     loadCart: () => Promise<void>;
-    addToCart: (product: Product, quantity?: number) => Promise<void>;
+    addToCart: (product: CartProduct, quantity?: number) => Promise<void>;
     removeFromCart: (productId: string) => Promise<void>;
     updateQuantity: (productId: string, quantity: number) => Promise<void>;
     isInCart: (productId: string) => boolean;
@@ -37,7 +43,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         }
     },
 
-    addToCart: async (product: Product, quantity = 1) => {
+    addToCart: async (product: CartProduct, quantity = 1) => {
         // Optimistic Update
         const currentItems = [...get().items];
         const existingItemIndex = currentItems.findIndex(i => i.productId === product.id);

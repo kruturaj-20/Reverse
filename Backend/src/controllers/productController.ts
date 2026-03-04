@@ -12,8 +12,8 @@ export const getProducts = asyncHandler(async (req: Request, res: Response) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
     const skip = (page - 1) * limit;
 
-    // Filtering
-    const filter: any = {};
+    // Filtering — always exclude soft-deleted products
+    const filter: any = { isDeleted: { $ne: true } };
     if (req.query.category) filter.category = req.query.category;
     if (req.query.brand) filter.brand = req.query.brand;
     if (req.query.minPrice || req.query.maxPrice) {
@@ -46,16 +46,14 @@ export const getProductById = asyncHandler(async (req: Request, res: Response) =
 
     // Handle Affiliate/Mock/RapidAPI IDs which are not MongoDB ObjectIDs
     if (id.startsWith('af_') || id.startsWith('amz_') || id.startsWith('fk_')) {
-        // Find in mock pool
         const { searchAffiliateProducts } = await import('../services/affiliateService');
-        // Hack: trigger an empty search to extract the mock pool directly
-        const affiliateProducts = await searchAffiliateProducts({ keywords: [], rawQuery: '' }, 50);
+        // Search with the actual ID as context — the affiliate service already caches results
+        const affiliateProducts = await searchAffiliateProducts({ keywords: [id], rawQuery: id }, 50);
         const product = affiliateProducts.find(p => p.id === id);
 
         if (!product) {
-            // It's a live RapidAPI product. Since we don't have caching yet, returning 
-            // a synthesized basic product prevents the UI crash. The frontend already has 
-            // the full product in memory from the search results anyway.
+            // Live API product not in cache — the frontend has the full data from search results.
+            // Return a minimal stub so the product detail screen can render the affiliate links.
             sendSuccess(res, {
                 id,
                 name: 'Live Affiliate Product',
@@ -71,7 +69,7 @@ export const getProductById = asyncHandler(async (req: Request, res: Response) =
                 primaryStore: 'external',
                 description: 'This is a live product from an external store. Click Buy Now to view details.',
                 storePrices: []
-            }, 'Basic affiliate product synthesized');
+            }, 'Affiliate product stub returned');
             return;
         }
 
@@ -79,7 +77,7 @@ export const getProductById = asyncHandler(async (req: Request, res: Response) =
         return;
     }
 
-    const product = await Product.findById(id);
+    const product = await Product.findOne({ _id: id, isDeleted: { $ne: true } });
     if (!product) throw new AppError('Product not found', 404);
     sendSuccess(res, product, 'Product fetched successfully');
 });
@@ -106,7 +104,12 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
 
 export const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const product = await Product.findByIdAndDelete(id);
+    // Soft-delete — preserves referential integrity for existing orders
+    const product = await Product.findOneAndUpdate(
+        { _id: id, isDeleted: { $ne: true } },
+        { isDeleted: true },
+        { new: true }
+    );
     if (!product) throw new AppError('Product not found', 404);
     sendSuccess(res, null, 'Product deleted successfully', 200);
 });

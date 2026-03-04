@@ -1,7 +1,8 @@
 import { Schema, model, Document, Types } from 'mongoose';
+import { OrderStatus, PaymentStatus } from './Order';
 
-export type OrderStatus = 'pending' | 'shipped' | 'delivered' | 'cancelled';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+// Re-export so existing imports from this file continue to work
+export type { OrderStatus, PaymentStatus };
 
 export interface IProduct extends Document {
     title: string;
@@ -15,6 +16,7 @@ export interface IProduct extends Document {
     category: string;
     brand: string;
     stock: number;
+    isDeleted: boolean;   // Soft-delete flag — never hard-delete products (orders reference them)
     createdAt: Date;
 }
 
@@ -79,6 +81,10 @@ const productSchema = new Schema<IProduct>(
             min: [0, 'Stock cannot be negative'],
             default: 0,
         },
+        isDeleted: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,
@@ -87,6 +93,7 @@ const productSchema = new Schema<IProduct>(
                 ret.id = ret._id;
                 delete (ret as any)._id;
                 delete (ret as any).__v;
+                delete (ret as any).isDeleted; // Never expose soft-delete flag to clients
                 return ret;
             },
         },
