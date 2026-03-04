@@ -84,9 +84,13 @@ export const WishlistScreen = () => {
 
                         return (
                             <TouchableOpacity
-                                onPress={() =>
-                                    navigation.navigate('ProductDetail', { productId: item.id })
-                                }
+                                onPress={() => {
+                                    const isAffiliate = item.id.startsWith('amz_') || item.id.startsWith('fk_') || item.id.startsWith('af_');
+                                    navigation.navigate('ProductDetail', {
+                                        productId: item.id,
+                                        product: isAffiliate ? item : undefined
+                                    });
+                                }}
                                 activeOpacity={0.88}
                                 style={styles.card}>
                                 {/* Image */}

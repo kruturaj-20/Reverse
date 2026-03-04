@@ -117,3 +117,6 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Enable React Native Vector Icons (Ionicons etc.)
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"

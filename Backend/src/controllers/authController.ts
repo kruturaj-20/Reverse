@@ -46,19 +46,35 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
     const { refreshToken: token } = req.body;
     if (!token) throw new AppError('Refresh token is required', 400);
 
-    // Verify token cryptographically
+    // Cryptographic verification
     const decoded = verifyRefreshToken(token);
 
-    // Verify it exists in the store — proves it hasn't been revoked/used
+    // Check if this token exists in the store
     const stored = await RefreshToken.findOne({ token });
-    if (!stored) throw new AppError('Invalid or revoked refresh token', 401);
+
+    if (!stored) {
+        // Token doesn't exist — it was already used (rotated) or revoked.
+        // This could be a replay attack. If we have familyId from the JWT payload,
+        // invalidate ALL tokens in the family to protect the legitimate user.
+        //
+        // How replay detection works:
+        //   1. Legitimate flow: token used → deleted → new token created with same familyId
+        //   2. Replay attack: attacker reuses the deleted token → we see it's gone → nuke the family
+        const familyTokens = await RefreshToken.find({ userId: decoded.id });
+        if (familyTokens.length > 0) {
+            // Invalidate all tokens for this user (conservative approach — protects them)
+            await RefreshToken.deleteMany({ userId: decoded.id });
+        }
+        throw new AppError('Refresh token has been revoked or reused. Please log in again.', 401);
+    }
 
     const user = await User.findById(decoded.id);
     if (!user) throw new AppError('User not found', 401);
 
-    // Rotate: delete old token, issue new pair
+    // Rotate: delete old token, issue new pair — carry the familyId forward
+    const familyId = stored.familyId;
     await RefreshToken.deleteOne({ token });
-    const tokens = await generateTokenPair(user);
+    const tokens = await generateTokenPair(user, familyId);
 
     sendSuccess(res, tokens, 'Token refreshed successfully');
 });

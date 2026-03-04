@@ -184,7 +184,13 @@ export const ImageSearchScreen = () => {
                                 <View key={p.id} style={styles.gridItem}>
                                     <ProductCard
                                         product={p}
-                                        onPress={() => navigation.navigate('ProductDetail', { productId: p.id })}
+                                        onPress={() => {
+                                            const isAffiliate = p.id.startsWith('amz_') || p.id.startsWith('fk_') || p.id.startsWith('af_');
+                                            navigation.navigate('ProductDetail', {
+                                                productId: p.id,
+                                                product: isAffiliate ? p : undefined
+                                            });
+                                        }}
                                     />
                                 </View>
                             ))}

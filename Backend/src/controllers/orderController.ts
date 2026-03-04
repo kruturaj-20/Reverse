@@ -1,7 +1,6 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Order from '../models/Order';
 import Cart from '../models/Cart';
-import Product from '../models/Product';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
 import { AppError } from '../utils/AppError';
@@ -10,8 +9,10 @@ import mongoose from 'mongoose';
 import { config } from '../config';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import { buildOrderItemsFromCart, decrementStock } from '../services/orderService';
 
-// Helper to create razorpay client lazily (so config is already loaded)
+// ─── Razorpay client (lazy singleton) ────────────────────────────────────────
+
 let _razorpayClient: Razorpay | null = null;
 function getRazorpayClient(): Razorpay {
     if (!_razorpayClient) {
@@ -23,52 +24,22 @@ function getRazorpayClient(): Razorpay {
     return _razorpayClient;
 }
 
+// ─── COD / Legacy Order ───────────────────────────────────────────────────────
+// Deducts stock immediately on placement. For Razorpay flow, use checkout + verifyPayment.
+
 export const placeOrder = asyncHandler(async (req: AuthRequest, res: Response) => {
-    // Legacy COD-style order: deducts stock immediately
     const { shippingAddress } = req.body;
     const userId = req.user!.id;
-
-    const cart = await Cart.findOne({ userId });
-    if (!cart || cart.items.length === 0) {
-        throw new AppError('Cart is empty', 400);
-    }
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        // Batch-fetch ALL products in one query — eliminates N+1
-        const productIds = cart.items.map(i => i.productId);
-        const products = await Product.find({ _id: { $in: productIds } }).session(session);
-        const productMap = new Map(products.map(p => [p._id.toString(), p]));
+        // Build order items from cart (validates stock inside a transaction)
+        const { orderItems, totalAmount } = await buildOrderItemsFromCart(userId, session);
 
-        const orderItems: {
-            productId: mongoose.Types.ObjectId;
-            title: string;
-            price: number;
-            quantity: number;
-            imageUrl: string;
-        }[] = [];
-        let totalAmount = 0;
-
-        for (const item of cart.items) {
-            const product = productMap.get(item.productId.toString());
-            if (!product) throw new AppError(`Product not found`, 404);
-            if (product.stock < item.quantity) {
-                throw new AppError(`Not enough stock for ${product.title}`, 400);
-            }
-            product.stock -= item.quantity;
-            await product.save({ session });
-
-            orderItems.push({
-                productId: product._id as mongoose.Types.ObjectId,
-                title: product.title,
-                price: product.price,        // Price snapshot at order time
-                quantity: item.quantity,
-                imageUrl: product.images[0] || '',
-            });
-            totalAmount += product.price * item.quantity;
-        }
+        // Decrement stock atomically
+        await decrementStock(orderItems, session);
 
         const order = new Order({
             userId,
@@ -78,12 +49,14 @@ export const placeOrder = asyncHandler(async (req: AuthRequest, res: Response) =
             paymentStatus: 'pending',
             orderStatus: 'pending',
         });
-
         await order.save({ session });
 
-        cart.items = [];
-        cart.totalPrice = 0;
-        await cart.save({ session });
+        // Clear cart after successful order
+        await Cart.findOneAndUpdate(
+            { userId },
+            { $set: { items: [], totalPrice: 0 } },
+            { session }
+        );
 
         await session.commitTransaction();
         session.endSession();
@@ -96,53 +69,22 @@ export const placeOrder = asyncHandler(async (req: AuthRequest, res: Response) =
     }
 });
 
-// Create a Razorpay order and return payment payload to the client.
-// Stock is NOT decremented here — only validated. Decrement happens in verifyPayment
-// after the payment signature is confirmed, preventing phantom stock loss on payment failure.
+// ─── Razorpay Checkout ────────────────────────────────────────────────────────
+// Creates a Razorpay order. Stock is validated but NOT decremented here.
+// Decrement happens in verifyPayment after HMAC signature is confirmed,
+// preventing phantom stock loss on payment abandonment/failure.
+
 export const checkout = asyncHandler(async (req: AuthRequest, res: Response) => {
     const { shippingAddress } = req.body;
     const userId = req.user!.id;
 
-    const cart = await Cart.findOne({ userId });
-    if (!cart || cart.items.length === 0) {
-        throw new AppError('Cart is empty', 400);
-    }
+    // Build order items (no session — we're just reading, not writing stock yet)
+    const { orderItems, totalAmount } = await buildOrderItemsFromCart(userId);
 
-    // Batch-fetch ALL products in one query — eliminates N+1
-    const productIds = cart.items.map(i => i.productId);
-    const products = await Product.find({ _id: { $in: productIds } });
-    const productMap = new Map(products.map(p => [p._id.toString(), p]));
-
-    const orderItems: {
-        productId: mongoose.Types.ObjectId;
-        title: string;
-        price: number;
-        quantity: number;
-        imageUrl: string;
-    }[] = [];
-    let totalAmount = 0;
-
-    for (const item of cart.items) {
-        const product = productMap.get(item.productId.toString());
-        if (!product) throw new AppError(`Product not found`, 404);
-        if (product.stock < item.quantity) {
-            throw new AppError(`Not enough stock for ${product.title}`, 400);
-        }
-
-        orderItems.push({
-            productId: product._id as mongoose.Types.ObjectId,
-            title: product.title,
-            price: product.price,        // Price snapshot at checkout time
-            quantity: item.quantity,
-            imageUrl: product.images[0] || '',
-        });
-        totalAmount += product.price * item.quantity;
-    }
-
-    // Create Razorpay order
+    // Create Razorpay order (paise = INR * 100)
     const rp = getRazorpayClient();
     const razorpayOrder = await rp.orders.create({
-        amount: Math.round(totalAmount * 100), // Convert INR to paise
+        amount: Math.round(totalAmount * 100),
         currency: 'INR',
         payment_capture: true,
     });
@@ -167,12 +109,13 @@ export const checkout = asyncHandler(async (req: AuthRequest, res: Response) => 
         sendSuccess(res, {
             order,
             razorpay: {
+                // key_id is a publishable key — safe to expose to client per Razorpay docs
                 keyId: config.razorpayKeyId,
                 orderId: razorpayOrder.id,
                 amount: razorpayOrder.amount,
                 currency: razorpayOrder.currency,
             },
-        }, 'Order created');
+        }, 'Checkout initiated');
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
@@ -180,15 +123,17 @@ export const checkout = asyncHandler(async (req: AuthRequest, res: Response) => 
     }
 });
 
-// Verify Razorpay payment signature, then atomically decrement stock and clear cart.
+// ─── Verify Razorpay Payment ──────────────────────────────────────────────────
+// Verifies HMAC-SHA256 signature, then atomically decrements stock and clears cart.
 // This is the ONLY place stock is reduced in the Razorpay flow.
+
 export const verifyPayment = asyncHandler(async (req: AuthRequest, res: Response) => {
     const { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
     if (!orderId || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
         throw new AppError('Missing payment information', 400);
     }
 
-    // Verify HMAC-SHA256 signature — prevents tampered payment IDs
+    // Cryptographic signature verification — prevents tampered payment IDs
     const generatedSignature = crypto
         .createHmac('sha256', config.razorpayKeySecret)
         .update(`${razorpayOrderId}|${razorpayPaymentId}`)
@@ -201,8 +146,8 @@ export const verifyPayment = asyncHandler(async (req: AuthRequest, res: Response
     const order = await Order.findOne({ _id: orderId, userId: req.user!.id });
     if (!order) throw new AppError('Order not found', 404);
 
+    // Idempotency guard — safe to call multiple times (e.g. duplicate webhooks)
     if (order.paymentStatus === 'paid') {
-        // Idempotent: already processed (e.g. duplicate webhook)
         sendSuccess(res, order, 'Payment already verified');
         return;
     }
@@ -210,21 +155,17 @@ export const verifyPayment = asyncHandler(async (req: AuthRequest, res: Response
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        // Decrement stock now that payment is confirmed
-        const productIds = order.items.map(i => i.productId);
-        const products = await Product.find({ _id: { $in: productIds } }).session(session);
-        const productMap = new Map(products.map(p => [p._id.toString(), p]));
-
-        for (const item of order.items) {
-            const product = productMap.get(item.productId.toString());
-            if (!product) throw new AppError(`Product not found during stock update`, 404);
-            if (product.stock < item.quantity) {
-                // Rare race condition: stock ran out between checkout and payment verification
-                throw new AppError(`Insufficient stock for ${item.title}. Please contact support.`, 409);
-            }
-            product.stock -= item.quantity;
-            await product.save({ session });
-        }
+        // Stock decrement — now that payment is confirmed
+        await decrementStock(
+            order.items.map(i => ({
+                productId: i.productId as mongoose.Types.ObjectId,
+                title: i.title,
+                price: i.price,
+                quantity: i.quantity,
+                imageUrl: i.imageUrl,
+            })),
+            session
+        );
 
         // Mark order as paid
         order.paymentStatus = 'paid';
@@ -232,7 +173,7 @@ export const verifyPayment = asyncHandler(async (req: AuthRequest, res: Response
         order.razorpaySignature = razorpaySignature;
         await order.save({ session });
 
-        // Clear the user's cart now that payment is confirmed
+        // Clear user's cart
         await Cart.findOneAndUpdate(
             { userId: order.userId },
             { $set: { items: [], totalPrice: 0 } },
@@ -249,6 +190,8 @@ export const verifyPayment = asyncHandler(async (req: AuthRequest, res: Response
         throw error;
     }
 });
+
+// ─── Read Operations ──────────────────────────────────────────────────────────
 
 export const getOrders = asyncHandler(async (req: AuthRequest, res: Response) => {
     const orders = await Order.find({ userId: req.user!.id }).sort({ createdAt: -1 });

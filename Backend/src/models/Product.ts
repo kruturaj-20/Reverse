@@ -100,11 +100,38 @@ const productSchema = new Schema<IProduct>(
     }
 );
 
-// Compound indexes for search and filtering
+// ─── Indexes ───────────────────────────────────────────────────────────────────
+
+// Full-text search across title, description, brand, and category
 productSchema.index({ title: 'text', description: 'text', brand: 'text', category: 'text' });
-productSchema.index({ category: 1, price: 1 });
-productSchema.index({ brand: 1 });
+
+// Compound index for browse queries (category filter + price sort) — most common access pattern
+productSchema.index({ isDeleted: 1, category: 1, price: 1 });
+
+// Compound index for brand filter + rating sort
+productSchema.index({ isDeleted: 1, brand: 1, rating: -1 });
+
+// Sorting indexes (single-field, for queries without category/brand filter)
 productSchema.index({ rating: -1 });
 productSchema.index({ createdAt: -1 });
+
+// ─── Global Soft-Delete Query Filter (I5 fix) ─────────────────────────────
+// Automatically excludes soft-deleted products from all find/findOne queries.
+// This prevents any developer from accidentally exposing deleted products by
+// forgetting to add { isDeleted: { $ne: true } } to their queries.
+//
+// Bypass when needed (e.g., admin panel): Model.find({ ... }).setQuery({ isDeleted: true })
+// or use Model.findWithDeleted (see below)
+const autoExcludeDeleted = function (this: any) {
+    if (!this.getQuery().includeDeleted) {
+        this.where({ isDeleted: { $ne: true } });
+    }
+    delete this.getQuery().includeDeleted;
+};
+
+productSchema.pre('find', autoExcludeDeleted);
+productSchema.pre('findOne', autoExcludeDeleted);
+productSchema.pre('countDocuments', autoExcludeDeleted);
+productSchema.pre('findOneAndUpdate', autoExcludeDeleted);
 
 export default model<IProduct>('Product', productSchema);

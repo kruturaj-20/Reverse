@@ -46,6 +46,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, styl
         : product.originalPrice;
     const discountPct = Math.round(((product.originalPrice - lowestPrice) / product.originalPrice) * 100);
 
+    const isAffiliate = product.id.startsWith('amz_') || product.id.startsWith('fk_') || product.id.startsWith('af_');
+    const displayStoreName = product.primaryStore || (storePrices[0]?.storeName) || 'External Store';
+
     return (
         <Animated.View style={[styles.card, style, { transform: [{ scale }] }]}>
             <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
@@ -95,16 +98,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, styl
                         <Text style={styles.originalPrice}>₹{product.originalPrice.toLocaleString()}</Text>
                     </View>
 
-                    {/* Delivery */}
-                    <Text style={styles.delivery}>🚚 Free Delivery</Text>
+                    {/* Delivery & Trust (Own Stock Only) */}
+                    {!isAffiliate && (
+                        <>
+                            <Text style={styles.delivery}>🚚 Free Delivery</Text>
+                            <TrustBadges compact />
+                            <TouchableOpacity style={styles.addBtn} onPress={onPress}>
+                                <Text style={styles.addBtnText}>+ Add to Cart</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
 
-                    {/* Trust */}
-                    <TrustBadges compact />
-
-                    {/* Add to cart */}
-                    <TouchableOpacity style={styles.addBtn} onPress={onPress}>
-                        <Text style={styles.addBtnText}>+ Add to Cart</Text>
-                    </TouchableOpacity>
+                    {/* Affiliate Badging (External Products Only) */}
+                    {isAffiliate && (
+                        <>
+                            <View style={styles.affiliateRow}>
+                                <Text style={styles.storeEmoji}>🏪</Text>
+                                <Text style={styles.affiliateText}>From {displayStoreName}</Text>
+                            </View>
+                            <TouchableOpacity style={[styles.addBtn, styles.buyBtn]} onPress={onPress}>
+                                <Text style={styles.addBtnText}>View Deal</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
             </Pressable>
         </Animated.View>
@@ -223,9 +239,36 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: Spacing.xs,
     },
+    buyBtn: {
+        backgroundColor: Colors.textPrimary,
+    },
     addBtnText: {
         color: Colors.white,
         fontSize: Typography.xs,
         fontWeight: '700',
+    },
+    affiliateRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.surfaceElevated,
+        borderRadius: BorderRadius.xs,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        marginTop: 4,
+        marginBottom: 2,
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: Colors.surfaceBorder || '#E5E7EB',
+    },
+    storeEmoji: {
+        fontSize: 10,
+        marginRight: 4,
+    },
+    affiliateText: {
+        color: Colors.textSecondary,
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
 });

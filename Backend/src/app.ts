@@ -1,9 +1,11 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import mongoSanitize from 'express-mongo-sanitize';
+import { v4 as uuidv4 } from 'uuid';
 
 import { config } from './config';
 import logger from './utils/logger';
@@ -15,7 +17,9 @@ const app: Express = express();
 // ─── Trust Proxy ─────────────────────────────────────────────────────────────
 // Required when behind a reverse proxy (nginx, Caddy) so that rate limiting
 // uses the real client IP from X-Forwarded-For, not the proxy IP.
-app.set('trust proxy', 1);
+// Set to the number of actual proxies in front of the server. Use 1 for Render/Railway,
+// or set TRUST_PROXY_HOPS env var for multi-hop setups (e.g., 2 for AWS ALB + nginx).
+app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 
 // ─── Security HTTP Headers ───────────────────────────────────────────────────
 app.use(
@@ -42,6 +46,16 @@ app.use(
 // Explicitly remove the framework fingerprinting header
 app.disable('x-powered-by');
 
+// ─── Request Correlation ID ──────────────────────────────────────────────────
+// Assigns a unique UUID to every request. Returned as X-Request-Id response
+// header and attached to req for use in logs — enables distributed tracing.
+app.use((req: Request & { id?: string }, res: Response, next: NextFunction) => {
+    const requestId = (req.headers['x-request-id'] as string) || uuidv4();
+    (req as any).id = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    next();
+});
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 // Mobile apps (React Native) send no Origin header, so we allow requests
 // without an Origin. Requests with an Origin are checked against the allowlist.
@@ -65,6 +79,25 @@ app.use(compression());
 // ─── Body Parsers ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// ─── NoSQL Injection Prevention ──────────────────────────────────────────────
+// Strips MongoDB operator keys (e.g. $gt, $where) from req.body, req.query,
+// and req.params — prevents operator injection attacks even when Mongoose
+// parameterizes queries, because the operators may reach raw aggregation stages.
+app.use(
+    mongoSanitize({
+        allowDots: true, // Allow dot notation for nested fields (e.g. shippingAddress.city)
+        replaceWith: '_', // Replace $ with _ instead of removing — gives cleaner error messages
+        onSanitize: ({ req: sanitizedReq, key }) => {
+            logger.warn({
+                message: 'NoSQL injection attempt detected and sanitized',
+                key,
+                ip: sanitizedReq.ip,
+                path: sanitizedReq.path,
+            });
+        },
+    })
+);
 
 // ─── HTTP Logging ─────────────────────────────────────────────────────────────
 // Use 'combined' (Apache format) in production, piped to Winston for persistent log files.

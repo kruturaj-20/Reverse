@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config';
 import { IUser } from '../models/User';
 import RefreshToken from '../models/RefreshToken';
@@ -11,23 +12,43 @@ interface TokenPair {
 /**
  * Parse a JWT duration string (e.g. "30d", "7d", "24h", "15m") into milliseconds.
  * Keeps the DB TTL in sync with the JWT expiry so stale tokens are auto-cleaned.
+ * Supported units: s (seconds), m (minutes), h (hours), d (days), w (weeks)
  */
 function parseDurationMs(duration: string): number {
-    const unit = duration.slice(-1);
-    const value = parseInt(duration.slice(0, -1), 10);
-    if (isNaN(value)) return 30 * 24 * 60 * 60 * 1000; // Fallback: 30 days
+    const FALLBACK_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    if (!duration || typeof duration !== 'string') return FALLBACK_MS;
+
+    const match = duration.match(/^(\d+)([smhdw])$/);
+    if (!match) {
+        console.warn(`[authService] Unknown JWT duration format: "${duration}". Falling back to 30 days.`);
+        return FALLBACK_MS;
+    }
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
 
     const multipliers: Record<string, number> = {
-        s: 1000,
-        m: 60 * 1000,
-        h: 60 * 60 * 1000,
-        d: 24 * 60 * 60 * 1000,
-        w: 7 * 24 * 60 * 60 * 1000,
+        s: 1_000,
+        m: 60 * 1_000,
+        h: 60 * 60 * 1_000,
+        d: 24 * 60 * 60 * 1_000,
+        w: 7 * 24 * 60 * 60 * 1_000,
     };
-    return (multipliers[unit] ?? multipliers['d']) * value;
+
+    return value * multipliers[unit];
 }
 
-export const generateTokenPair = async (user: IUser): Promise<TokenPair> => {
+/**
+ * Generate an access + refresh token pair for the given user.
+ *
+ * @param user     - The user to generate tokens for
+ * @param familyId - Optional family ID to inherit on rotation. If omitted (new login),
+ *                   a new UUID is generated. This links the entire rotation chain for
+ *                   replay-detection and family-wide invalidation.
+ */
+export const generateTokenPair = async (user: IUser, familyId?: string): Promise<TokenPair> => {
+    const tokenFamilyId = familyId ?? uuidv4(); // New login = new family
+
     const payload = {
         id: (user as any)._id.toString(),
         email: user.email,
@@ -51,6 +72,7 @@ export const generateTokenPair = async (user: IUser): Promise<TokenPair> => {
     await RefreshToken.create({
         token: refreshToken,
         userId: (user as any)._id,
+        familyId: tokenFamilyId,
         expiresAt,
     });
 

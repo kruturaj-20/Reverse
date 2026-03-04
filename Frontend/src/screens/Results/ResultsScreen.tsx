@@ -35,17 +35,24 @@ export const ResultsScreen = () => {
     const [showFilters, setShowFilters] = useState(false);
 
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [results, setResults] = useState<Product[]>([]);
     const [aiQuery, setAiQuery] = useState<string>('');
 
     useEffect(() => {
-        fetchResults();
+        setPage(1);
+        setHasMore(true);
+        fetchResults(1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [query, category, selectedSort]);
+    }, [query, category, selectedSort, selectedStore]);
 
-    const fetchResults = async () => {
-        setLoading(true);
+    const fetchResults = async (pageNumber: number) => {
+        if (pageNumber === 1) setLoading(true);
+        else setLoadingMore(true);
+
         setError(null);
         try {
             let maxPrice: number | undefined;
@@ -59,16 +66,21 @@ export const ResultsScreen = () => {
 
             const searchQuery = query || category;
             const res = await textSearch(searchQuery, {
+                page: pageNumber,
+                limit: 20,
                 sort: sortParamMap[selectedSort],
                 maxPrice,
                 minPrice,
             });
 
-            let finalResults = res.data;
+            // Handle API wrapping response differently based on axios interceptors
+            const rawData = res.data;
+            const apiResponseData = (res as any).data?.data || rawData; // The actual array
+            let finalResults = Array.isArray(apiResponseData) ? apiResponseData : (Array.isArray(rawData) ? rawData : []);
 
             if (selectedStore !== 'All Stores') {
                 finalResults = finalResults.filter(p =>
-                    p.storePrices?.some(sp =>
+                    p.storePrices?.some((sp: any) =>
                         sp.storeId.toLowerCase() === selectedStore.toLowerCase(),
                     ),
                 );
@@ -82,14 +94,80 @@ export const ResultsScreen = () => {
                 finalResults = [...finalResults].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
             }
 
-            setResults(finalResults);
+            if (pageNumber === 1) {
+                setResults(finalResults);
+                // If we get fewer than 20 results on page 1, there's no page 2
+                setHasMore(finalResults.length === 20);
+            } else {
+                setResults(finalResults);
+                setHasMore(finalResults.length > 0);
+            }
+
             setAiQuery(res.meta?.query || searchQuery);
         } catch (err: any) {
             console.error('Search failed', err);
-            setError(err?.message || 'Could not fetch results. Is the backend running?');
+            // Only show full error state if page 1 fails
+            if (pageNumber === 1) {
+                setError(err?.message || 'Could not fetch results. Is the backend running?');
+            }
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
+    };
+
+    const handlePageChange = (newPage: number) => {
+        if (!loading && !loadingMore && newPage !== page) {
+            setPage(newPage);
+            fetchResults(newPage);
+        }
+    };
+
+    const renderPagination = () => {
+        if (results.length === 0 && page === 1) return null;
+
+        // Calculate pages to show (e.g., [1, 2, 3, 4] or surrounding current page)
+        const pages = [];
+        const startPage = Math.max(1, page - 1);
+        const endPage = hasMore ? Math.max(page + 2, 3) : page;
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return (
+            <View style={styles.paginationContainer}>
+                {page > 1 && (
+                    <TouchableOpacity
+                        style={styles.pageBtn}
+                        onPress={() => handlePageChange(page - 1)}
+                        disabled={loadingMore}>
+                        <Icon name="chevron-back" size={16} color={Colors.textPrimary} />
+                    </TouchableOpacity>
+                )}
+
+                {pages.map(p => (
+                    <TouchableOpacity
+                        key={p}
+                        style={[styles.pageBtn, page === p && styles.pageBtnActive]}
+                        onPress={() => handlePageChange(p)}
+                        disabled={loadingMore || page === p}>
+                        <Text style={[styles.pageText, page === p && styles.pageTextActive]}>
+                            {p}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+
+                {hasMore && (
+                    <TouchableOpacity
+                        style={styles.pageBtn}
+                        onPress={() => handlePageChange(page + 1)}
+                        disabled={loadingMore}>
+                        <Icon name="chevron-forward" size={16} color={Colors.textPrimary} />
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
     };
 
     return (
@@ -166,7 +244,7 @@ export const ResultsScreen = () => {
                     <Icon name="warning-outline" size={56} color={Colors.warning} />
                     <Text style={styles.emptyTitle}>Search Failed</Text>
                     <Text style={styles.emptyText}>{error}</Text>
-                    <TouchableOpacity style={styles.retryBtn} onPress={fetchResults}>
+                    <TouchableOpacity style={styles.retryBtn} onPress={() => fetchResults(1)}>
                         <Text style={styles.retryText}>Try Again</Text>
                     </TouchableOpacity>
                 </View>
@@ -179,19 +257,33 @@ export const ResultsScreen = () => {
             ) : (
                 <FlatList
                     data={results}
-                    keyExtractor={item => item.id}
+                    keyExtractor={(item, index) => `${item.id}-${index}`}
                     numColumns={2}
                     renderItem={({ item }) => (
                         <View style={styles.gridItem}>
                             <ProductCard
                                 product={item}
-                                onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                                onPress={() => {
+                                    const isAffiliate = item.id.startsWith('amz_') || item.id.startsWith('fk_') || item.id.startsWith('af_') || item.id.startsWith('un_');
+                                    navigation.navigate('ProductDetail', {
+                                        productId: item.id,
+                                        // Pass full product for affiliate items — avoids a second API call
+                                        // that returns a stub when the search cache is stale.
+                                        product: isAffiliate ? item : undefined,
+                                    });
+                                }}
                             />
                         </View>
                     )}
                     columnWrapperStyle={styles.row}
                     contentContainerStyle={styles.list}
                     showsVerticalScrollIndicator={false}
+                    ListFooterComponent={
+                        <View style={styles.footerWrap}>
+                            {loadingMore && <Text style={styles.footerLoaderText}>Loading page {page}...</Text>}
+                            {!loadingMore && renderPagination()}
+                        </View>
+                    }
                 />
             )}
         </View>
@@ -280,4 +372,43 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
     },
     retryText: { color: Colors.white, fontWeight: '700', fontSize: Typography.base },
+    footerWrap: {
+        paddingVertical: Spacing.xl,
+        alignItems: 'center',
+    },
+    footerLoaderText: {
+        color: Colors.textMuted,
+        fontSize: Typography.sm,
+        fontWeight: '500',
+        marginBottom: Spacing.md,
+    },
+    paginationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        marginTop: Spacing.md,
+    },
+    pageBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: BorderRadius.sm,
+        backgroundColor: Colors.surfaceElevated,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.surfaceBorder,
+    },
+    pageBtnActive: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+    },
+    pageText: {
+        color: Colors.textPrimary,
+        fontSize: Typography.sm,
+        fontWeight: '600',
+    },
+    pageTextActive: {
+        color: Colors.white,
+    },
 });

@@ -10,6 +10,11 @@ interface Props {
     children: ReactNode;
     /** Optional fallback to override the default error UI */
     fallback?: ReactNode;
+    /**
+     * Called when an error is caught. Use for crash reporting:
+     *   onError={(err, info) => Sentry.captureException(err, { extra: info })}
+     */
+    onError?: (error: Error, info: React.ErrorInfo) => void;
 }
 
 interface State {
@@ -37,7 +42,9 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     componentDidCatch(error: Error, info: React.ErrorInfo): void {
-        // Log to console in dev; swap for Sentry.captureException(error, { extra: info }) in prod
+        // Report to crash analytics — swap console.error for Sentry in production:
+        //   Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
+        this.props.onError?.(error, info);
         console.error('[ErrorBoundary] Uncaught error:', error, info);
     }
 
@@ -58,6 +65,14 @@ class ErrorBoundary extends Component<Props, State> {
                     <Text style={styles.message}>
                         An unexpected error occurred. Please try again.
                     </Text>
+                    {__DEV__ && this.state.error && (
+                        <View style={styles.devBox}>
+                            <Text style={styles.devTitle}>Debug (dev only):</Text>
+                            <Text style={styles.devText} numberOfLines={6}>
+                                {this.state.error.toString()}
+                            </Text>
+                        </View>
+                    )}
                     <TouchableOpacity
                         style={styles.button}
                         onPress={this.handleRetry}
@@ -110,6 +125,26 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    devBox: {
+        backgroundColor: '#FFF0F0',
+        borderRadius: 8,
+        padding: 12,
+        width: '100%',
+        marginBottom: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: '#FF3B30',
+    },
+    devTitle: {
+        fontWeight: '700',
+        color: '#CC0000',
+        fontSize: 11,
+        marginBottom: 4,
+    },
+    devText: {
+        fontFamily: 'monospace',
+        fontSize: 10,
+        color: '#CC0000',
     },
 });
 

@@ -44,6 +44,14 @@ export const useCartStore = create<CartState>((set, get) => ({
     },
 
     addToCart: async (product: CartProduct, quantity = 1) => {
+        // ── Affiliate product guard ──────────────────────────────────────────
+        // Affiliate products (amz_*, fk_*, af_*) are external link items — they
+        // cannot be stored in the backend cart. Show a clear message instead.
+        const AFFILIATE_PREFIXES = ['amz_', 'fk_', 'af_'];
+        if (AFFILIATE_PREFIXES.some(prefix => product.id.startsWith(prefix))) {
+            throw new Error('This is an external product. Tap "Buy Now" to purchase directly from the store.');
+        }
+
         // Optimistic Update
         const currentItems = [...get().items];
         const existingItemIndex = currentItems.findIndex(i => i.productId === product.id);
@@ -73,6 +81,7 @@ export const useCartStore = create<CartState>((set, get) => ({
             throw error; // Re-throw to show alert if needed
         }
     },
+
 
     updateQuantity: async (productId: string, quantity: number) => {
         const currentItems = [...get().items];

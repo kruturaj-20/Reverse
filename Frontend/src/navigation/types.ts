@@ -12,7 +12,10 @@ export type RootStackParamList = {
     Auth: undefined;
     MainTabs: undefined;
     Results: { query?: string; category?: string; imageUri?: string };
-    ProductDetail: { productId: string };
+    // 'product' is optional — affiliate products pass the full object to avoid
+    // a second API call that would return a stub on cache miss.
+    // DB products only pass productId and fetch normally.
+    ProductDetail: { productId: string; product?: Product };
     ImageSearch: undefined;
     InAppBrowser: { url: string; title?: string };
 };

@@ -32,7 +32,7 @@ type RouteP = RouteProp<RootStackParamList, 'ProductDetail'>;
 export const ProductDetailScreen = () => {
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RouteP>();
-    const { productId } = route.params;
+    const { productId, product: passedProduct } = route.params;
 
     const [product, setProduct] = useState<Product | null>(null);
     const [related, setRelated] = useState<Product[]>([]);
@@ -44,6 +44,21 @@ export const ProductDetailScreen = () => {
     const [selectedImageIdx, setSelectedImageIdx] = useState(0);
 
     React.useEffect(() => {
+        // If the caller passed the full product (affiliate flow), use it immediately.
+        // This avoids a second API call that would return a stub on cache miss.
+        if (passedProduct) {
+            setProduct(passedProduct);
+            setLoading(false);
+            // Still try to load related products based on category
+            if (passedProduct.category) {
+                productService
+                    .getProducts({ category: passedProduct.category, limit: 6 })
+                    .then(r => setRelated(r.data.filter(p => p.id !== passedProduct.id)))
+                    .catch(() => { }); // non-critical
+            }
+            return;
+        }
+        // DB product: fetch normally
         fetchProductData();
     }, [productId]);
 
@@ -87,6 +102,9 @@ export const ProductDetailScreen = () => {
     const inWishlist = isInWishlist(product.id);
     const sortedStorePrices = [...(product.storePrices || [])].sort((a, b) => a.price - b.price);
 
+    const isAffiliateProduct = product.id.startsWith('amz_') || product.id.startsWith('fk_') || product.id.startsWith('af_');
+    const bestStorePrice = sortedStorePrices[0];
+
     const handleAddToCart = async () => {
         setAddingToCart(true);
         try {
@@ -96,8 +114,8 @@ export const ProductDetailScreen = () => {
                 'Saved! You can complete checkout via any store below.',
                 [{ text: 'Okay', style: 'default' }],
             );
-        } catch {
-            Alert.alert('Error', 'Could not add to cart. Try again.');
+        } catch (e: any) {
+            Alert.alert('Cannot Add to Cart', e?.message || 'Could not add to cart. Try again.');
         } finally {
             setAddingToCart(false);
         }
@@ -105,6 +123,15 @@ export const ProductDetailScreen = () => {
 
     const handleBuyNow = async (affiliateUrl: string, storeName: string) => {
         navigation.navigate('InAppBrowser', { url: affiliateUrl, title: storeName });
+    };
+
+    const handleBuyBestPrice = () => {
+        if (!bestStorePrice?.affiliateUrl) {
+            Alert.alert('Unavailable', 'No purchase link available for this product.');
+            return;
+        }
+        const storeName = bestStorePrice.storeName || bestStorePrice.storeId || 'Store';
+        navigation.navigate('InAppBrowser', { url: bestStorePrice.affiliateUrl, title: storeName });
     };
 
 
@@ -221,7 +248,13 @@ export const ProductDetailScreen = () => {
                                     <View style={{ width: 160, marginRight: Spacing.sm }}>
                                         <ProductCard
                                             product={item}
-                                            onPress={() => navigation.replace('ProductDetail', { productId: item.id })}
+                                            onPress={() => {
+                                                const isAffiliate = item.id.startsWith('amz_') || item.id.startsWith('fk_') || item.id.startsWith('af_');
+                                                navigation.replace('ProductDetail', {
+                                                    productId: item.id,
+                                                    product: isAffiliate ? item : undefined
+                                                });
+                                            }}
                                         />
                                     </View>
                                 )}
@@ -236,22 +269,39 @@ export const ProductDetailScreen = () => {
                 <SafeAreaView style={styles.bottomSafe}>
                     <View style={styles.bottomRow}>
                         <View>
-                            <Text style={styles.bottomLabel}>Best price from</Text>
-                            <Text style={styles.bottomPrice}>₹{sortedStorePrices[0]?.price.toLocaleString()}</Text>
+                            <Text style={styles.bottomLabel}>
+                                {isAffiliateProduct ? 'Best price from' : 'Ships from us'}
+                            </Text>
+                            <Text style={styles.bottomPrice}>
+                                ₹{(isAffiliateProduct ? bestStorePrice?.price : product.price)?.toLocaleString() ?? '—'}
+                            </Text>
                         </View>
-                        <Button
-                            title={addingToCart ? "Adding..." : "🛒  Add To Cart"}
-                            onPress={handleAddToCart}
-                            style={{ flex: 1, marginLeft: Spacing.base }}
-                            size="lg"
-                            disabled={addingToCart}
-                        />
+                        {isAffiliateProduct ? (
+                            // ── Affiliate product: open InAppBrowser WebView ──────────────────
+                            // Payment happens on Amazon / Flipkart's own checkout inside the WebView.
+                            <Button
+                                title={`🛒  Buy Now`}
+                                onPress={handleBuyBestPrice}
+                                style={{ flex: 1, marginLeft: Spacing.base }}
+                                size="lg"
+                            />
+                        ) : (
+                            // ── DB / own-stock product: Razorpay checkout in app ──────────────
+                            <Button
+                                title={addingToCart ? "Adding..." : "🛒  Add To Cart"}
+                                onPress={handleAddToCart}
+                                style={{ flex: 1, marginLeft: Spacing.base }}
+                                size="lg"
+                                disabled={addingToCart}
+                            />
+                        )}
                     </View>
                 </SafeAreaView>
             </View>
         </View>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
