@@ -3,6 +3,8 @@ import {
     View,
     Text,
     FlatList,
+    SectionList,
+    ScrollView,
     StyleSheet,
     SafeAreaView,
     StatusBar,
@@ -23,7 +25,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const WishlistScreen = () => {
     const navigation = useNavigation<NavProp>();
-    const { items: rawItems, removeFromWishlist, loadWishlist, loading } = useWishlistStore();
+    const { items: rawItems, groups, removeFromWishlist, loadWishlist, loading } = useWishlistStore();
     const items = rawItems || [];
 
     React.useEffect(() => {
@@ -67,32 +69,124 @@ export const WishlistScreen = () => {
                     onAction={() => navigation.navigate('MainTabs')}
                 />
             ) : (
-                <FlatList
-                    data={items}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.list}
-                    showsVerticalScrollIndicator={false}
-                    renderItem={({ item }) => {
-                        const storePrices = item.storePrices || [];
-                        const lowestPrice = storePrices.length > 0
-                            ? Math.min(...storePrices.map(s => s.price))
-                            : item.originalPrice;
-                        const savings = item.originalPrice - lowestPrice;
-                        const discountPct = Math.round(
-                            ((item.originalPrice - lowestPrice) / item.originalPrice) * 100,
-                        );
-
+                (() => {
+                    const sections = Object.entries(groups).map(([cat, arr]) => ({ title: cat, data: arr }));
+                    if (sections.length > 0) {
                         return (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    const isAffiliate = item.id.startsWith('amz_') || item.id.startsWith('fk_') || item.id.startsWith('af_');
-                                    navigation.navigate('ProductDetail', {
-                                        productId: item.id,
-                                        product: isAffiliate ? item : undefined
-                                    });
+                            <SectionList
+                                sections={sections}
+                                keyExtractor={(item: any) => item.productId}
+                                renderSectionHeader={({ section: { title } }) => (
+                                    <Text style={styles.groupTitle}>{title.toUpperCase()}</Text>
+                                )}
+                                renderItem={({ item }: any) => {
+                                    const product = items.find(p => p.id === item.productId);
+                                    if (!product) return null;
+                                    const storePrices = product.storePrices || [];
+                                    const lowestPrice = storePrices.length > 0
+                                        ? Math.min(...storePrices.map(s => s.price))
+                                        : product.originalPrice;
+                                    const savings = product.originalPrice - lowestPrice;
+                                    const discountPct = Math.round(
+                                        ((product.originalPrice - lowestPrice) / product.originalPrice) * 100,
+                                    );
+                                    return (
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                const isAffiliate = product.id.startsWith('amz_') || product.id.startsWith('fk_') || product.id.startsWith('af_');
+                                                navigation.navigate('ProductDetail', {
+                                                    productId: product.id,
+                                                    product: isAffiliate ? product : undefined
+                                                });
+                                            }}
+                                            activeOpacity={0.88}
+                                            style={styles.card}>
+                                            {/* image and content same as below snippet, reuse component? for now duplicate */}
+                                            <View style={styles.imageWrap}>
+                                                <Image
+                                                    source={{ uri: product.image }}
+                                                    style={styles.cardImage}
+                                                    resizeMode="cover"
+                                                />
+                                                {discountPct > 0 && (
+                                                    <View style={styles.discountBadge}>
+                                                        <Text style={styles.discountText}>{discountPct}% OFF</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                            <View style={styles.cardContent}>
+                                                <Text style={styles.cardBrand}>{product.brand}</Text>
+                                                <Text style={styles.cardName} numberOfLines={2}>
+                                                    {product.name}
+                                                </Text>
+
+                                                <View style={styles.priceRow}>
+                                                    <Text style={styles.price}>
+                                                        ₹{lowestPrice.toLocaleString()}
+                                                    </Text>
+                                                    <Text style={styles.original}>
+                                                        ₹{product.originalPrice.toLocaleString()}
+                                                    </Text>
+                                                </View>
+                                                {savings > 0 && (
+                                                    <Text style={styles.savings}>
+                                                        You save ₹{savings.toLocaleString()}
+                                                    </Text>
+                                                )}
+
+                                                <View style={styles.cardFooter}>
+                                                    <View style={styles.alertBadge}>
+                                                        <Icon name="notifications-outline" size={11} color={Colors.warning} style={{ marginRight: 3 }} />
+                                                        <Text style={styles.alertText}>Price Alert</Text>
+                                                    </View>
+                                                    <Text style={styles.storeCount}>
+                                                        {storePrices.length} stores
+                                                    </Text>
+                                                </View>
+                                            </View>
+
+                                            <TouchableOpacity
+                                                onPress={() => confirmRemove(product.id, product.name)}
+                                                style={styles.removeBtn}>
+                                                <Icon name="close" size={18} color={Colors.textMuted} />
+                                            </TouchableOpacity>
+                                        </TouchableOpacity>
+                                    );
                                 }}
-                                activeOpacity={0.88}
-                                style={styles.card}>
+                                ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+                                contentContainerStyle={styles.list}
+                            />
+                        );
+                    }
+                    // fallback flat list
+                    return (
+                        <FlatList
+                            data={items}
+                            keyExtractor={item => item.id}
+                            contentContainerStyle={styles.list}
+                            showsVerticalScrollIndicator={false}
+                            renderItem={({ item }) => {
+                                const storePrices = item.storePrices || [];
+                                const lowestPrice = storePrices.length > 0
+                                    ? Math.min(...storePrices.map(s => s.price))
+                                    : item.originalPrice;
+                                const savings = item.originalPrice - lowestPrice;
+                                const discountPct = Math.round(
+                                    ((item.originalPrice - lowestPrice) / item.originalPrice) * 100,
+                                );
+
+                                return (
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            const isAffiliate = item.id.startsWith('amz_') || item.id.startsWith('fk_') || item.id.startsWith('af_');
+                                            navigation.navigate('ProductDetail', {
+                                                productId: item.id,
+                                                product: isAffiliate ? item : undefined
+                                            });
+                                        }}
+                                        activeOpacity={0.88}
+                                        style={styles.card}>
                                 {/* Image */}
                                 <View style={styles.imageWrap}>
                                     <Image
@@ -222,6 +316,13 @@ const styles = StyleSheet.create({
         padding: Spacing.base,
         paddingBottom: 120,
         gap: Spacing.sm,
+    },
+    groupTitle: {
+        fontSize: Typography.lg,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        paddingHorizontal: Spacing.base,
+        marginBottom: Spacing.xs,
     },
     card: {
         flexDirection: 'row',
